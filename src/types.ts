@@ -12,13 +12,11 @@ export interface ActivityData {
 }
 
 export enum ViewState {
-  DASHBOARD = 'DASHBOARD',
-  FOOD_LENS = 'FOOD_LENS',
-  BMI_HUB = 'BMI_HUB',
-  MAP_TRACKER = 'MAP_TRACKER',
-  CHAT = 'CHAT',
-  PROFILE = 'PROFILE',
-  ACTIVITY_LOG = 'ACTIVITY_LOG'
+  HOME = 'HOME',
+  LENS = 'LENS',
+  TRACK = 'TRACK',
+  COACH = 'COACH',
+  ME = 'ME',
 }
 
 export type Gender = 'Male' | 'Female' | 'Other';

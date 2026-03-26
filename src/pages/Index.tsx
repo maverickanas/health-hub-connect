@@ -7,9 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import AuthScreen from '@/components/health/AuthScreen';
 import Dashboard from '@/components/health/Dashboard';
-import BMIHub from '@/components/health/BMIHub';
+import FoodLens from '@/components/health/FoodLens';
+import GPSTracker from '@/components/health/GPSTracker';
 import ChatBot from '@/components/health/ChatBot';
-import ActivityLogger from '@/components/health/ActivityLogger';
 import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
 import { Loader2 } from 'lucide-react';
@@ -19,15 +19,15 @@ const Index = () => {
   const { user, loading, signIn, signUp, signOut } = useAuth();
   const profile = useProfile(user);
   const [isGuest, setIsGuest] = useLocalStorage('hh_guest', false);
-  const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
+  const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [isTracking, setIsTracking] = useState(false);
 
   const [activityData, setActivityData] = useLocalStorage<ActivityData>('hh_activity', {
-    steps: 0,
-    calories: 0,
-    distance: 0,
-    hydration: 0,
-    caloriesConsumed: 0,
+    steps: 3247,
+    calories: 487,
+    distance: 2.1,
+    hydration: 1.2,
+    caloriesConsumed: 850,
     stepGoal: 10000,
     calorieGoal: 2000,
     distanceGoal: 5.0,
@@ -37,7 +37,6 @@ const Index = () => {
 
   const [streak] = useLocalStorage('hh_streak', 5);
 
-  // Load activity data from DB for authenticated users
   useEffect(() => {
     if (!user) return;
     const loadActivity = async () => {
@@ -74,13 +73,11 @@ const Index = () => {
 
   const handleSignUp = async (email: string, password: string, name: string) => {
     await signUp(email, password, name);
-    toast.success('Account created! Check your email to verify.');
+    toast.success('Account created! You are now logged in.');
     setIsGuest(false);
   };
 
-  const handleGuestLogin = () => {
-    setIsGuest(true);
-  };
+  const handleGuestLogin = () => setIsGuest(true);
 
   const handleLogout = async () => {
     if (isGuest) {
@@ -88,12 +85,11 @@ const Index = () => {
     } else {
       await signOut();
     }
-    setCurrentView(ViewState.DASHBOARD);
+    setCurrentView(ViewState.HOME);
   };
 
   const handleUpdateData = async (updates: Partial<ActivityData>) => {
     setActivityData(prev => ({ ...prev, ...updates }));
-
     if (user) {
       const today = new Date().toISOString().split('T')[0];
       const merged = { ...activityData, ...updates };
@@ -113,10 +109,6 @@ const Index = () => {
     }
   };
 
-  const handleLogWorkout = (calories: number) => {
-    handleUpdateData({ calories: activityData.calories + calories });
-  };
-
   const isAuthenticated = !!user || isGuest;
   const userName = profile?.display_name || (isGuest ? 'Guest' : 'Elite');
   const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
@@ -130,13 +122,7 @@ const Index = () => {
   }
 
   if (!isAuthenticated) {
-    return (
-      <AuthScreen
-        onSignIn={handleSignIn}
-        onSignUp={handleSignUp}
-        onGuestLogin={handleGuestLogin}
-      />
-    );
+    return <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />;
   }
 
   const pageTransition = {
@@ -150,8 +136,8 @@ const Index = () => {
     <div className="flex flex-col h-[100dvh] bg-background text-foreground relative overflow-hidden">
       <main className="flex-1 relative w-full overflow-hidden">
         <AnimatePresence mode="wait">
-          {currentView === ViewState.DASHBOARD && (
-            <motion.div key="dash" {...pageTransition} className="h-full w-full">
+          {currentView === ViewState.HOME && (
+            <motion.div key="home" {...pageTransition} className="h-full w-full">
               <Dashboard
                 data={activityData}
                 userName={userName}
@@ -162,26 +148,23 @@ const Index = () => {
               />
             </motion.div>
           )}
-          {currentView === ViewState.BMI_HUB && (
-            <motion.div key="bmi" {...pageTransition} className="h-full w-full">
-              <BMIHub />
+          {currentView === ViewState.LENS && (
+            <motion.div key="lens" {...pageTransition} className="h-full w-full">
+              <FoodLens />
             </motion.div>
           )}
-          {currentView === ViewState.CHAT && (
-            <motion.div key="chat" {...pageTransition} className="h-full w-full">
+          {currentView === ViewState.TRACK && (
+            <motion.div key="track" {...pageTransition} className="h-full w-full">
+              <GPSTracker />
+            </motion.div>
+          )}
+          {currentView === ViewState.COACH && (
+            <motion.div key="coach" {...pageTransition} className="h-full w-full">
               <ChatBot />
             </motion.div>
           )}
-          {currentView === ViewState.ACTIVITY_LOG && (
-            <motion.div key="log" {...pageTransition} className="h-full w-full">
-              <ActivityLogger
-                userWeight={70}
-                onLogWorkout={handleLogWorkout}
-              />
-            </motion.div>
-          )}
-          {currentView === ViewState.PROFILE && (
-            <motion.div key="profile" {...pageTransition} className="h-full w-full">
+          {currentView === ViewState.ME && (
+            <motion.div key="me" {...pageTransition} className="h-full w-full">
               <ProfileScreen
                 userName={userName}
                 email={userEmail}

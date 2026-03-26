@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Calculator, MessageSquare, Dumbbell, User } from 'lucide-react';
+import { BarChart3, Camera, Navigation as NavIcon, MessageCircle, UserCircle } from 'lucide-react';
 import { ViewState } from '@/types';
 
 interface NavigationProps {
@@ -9,41 +9,53 @@ interface NavigationProps {
 }
 
 const NAV_ITEMS = [
-  { view: ViewState.DASHBOARD, icon: LayoutDashboard, label: 'Hub' },
-  { view: ViewState.BMI_HUB, icon: Calculator, label: 'BMI' },
-  { view: ViewState.CHAT, icon: MessageSquare, label: 'Coach' },
-  { view: ViewState.ACTIVITY_LOG, icon: Dumbbell, label: 'Log' },
-  { view: ViewState.PROFILE, icon: User, label: 'Profile' },
+  { view: ViewState.HOME, icon: BarChart3, label: 'Home' },
+  { view: ViewState.LENS, icon: Camera, label: 'Lens' },
+  { view: ViewState.TRACK, icon: NavIcon, label: 'Track' },
+  { view: ViewState.COACH, icon: MessageCircle, label: 'Coach' },
+  { view: ViewState.ME, icon: UserCircle, label: 'Me' },
 ];
 
 const Navigation: React.FC<NavigationProps> = ({ currentView, setView }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border">
-      <div className="flex justify-around items-center h-16 max-w-md mx-auto px-4">
-        {NAV_ITEMS.map(({ view, icon: Icon, label }) => {
-          const isActive = currentView === view;
-          return (
-            <motion.button
-              key={view}
-              onClick={() => setView(view)}
-              whileTap={{ scale: 0.9 }}
-              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-colors ${
-                isActive ? 'text-luxury-neon' : 'text-muted-foreground'
-              }`}
-            >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.5} />
-              <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-luxury-neon' : ''}`}>
-                {label}
-              </span>
-              {isActive && (
-                <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-0.5 bg-luxury-neon rounded-full shadow-[0_0_10px_rgba(204,255,0,0.5)]"
-                />
-              )}
-            </motion.button>
-          );
-        })}
+    <nav className="fixed bottom-4 left-4 right-4 z-50">
+      <div className="glass-panel mx-auto max-w-md rounded-[2rem] px-2 py-1">
+        <div className="flex justify-around items-center h-16">
+          {NAV_ITEMS.map(({ view, icon: Icon, label }) => {
+            const isActive = currentView === view;
+            return (
+              <motion.button
+                key={view}
+                onClick={() => setView(view)}
+                whileTap={{ scale: 0.85 }}
+                className="relative flex flex-col items-center gap-1 py-2 px-3"
+              >
+                <div className={`relative transition-all duration-300 ${isActive ? 'text-luxury-neon' : 'text-muted-foreground'}`}>
+                  <Icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-glow"
+                      className="absolute -inset-2 rounded-full bg-luxury-neon/10 blur-md"
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </div>
+                <span className={`text-[8px] font-extrabold uppercase tracking-[0.15em] transition-colors duration-300 ${
+                  isActive ? 'text-luxury-neon neon-text-glow' : 'text-muted-foreground'
+                }`}>
+                  {label}
+                </span>
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-dot"
+                    className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-luxury-neon shadow-[0_0_6px_rgba(204,255,0,0.8)]"
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );
