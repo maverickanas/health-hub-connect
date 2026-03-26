@@ -5,11 +5,12 @@ import Logo from './Logo';
 import GlowingButton from './GlowingButton';
 
 interface AuthScreenProps {
-  onLogin: (name: string, email: string) => void;
+  onSignIn: (email: string, password: string) => Promise<void>;
+  onSignUp: (email: string, password: string, name: string) => Promise<void>;
   onGuestLogin: () => void;
 }
 
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onGuestLogin }) => {
+const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGuestLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,13 +29,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onGuestLogin }) => {
       if (!isLogin) {
         if (password !== confirmPassword) throw new Error("Passwords do not match.");
         if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+        await onSignUp(email, password, name || 'Elite');
+      } else {
+        await onSignIn(email, password);
       }
-      if (!email) throw new Error("Email is required.");
-      if (!password) throw new Error("Password is required.");
-
-      // Simulate auth delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      onLogin(name || 'Elite', email);
     } catch (err: any) {
       setError(err.message || "Auth Protocol Refused.");
     } finally {
