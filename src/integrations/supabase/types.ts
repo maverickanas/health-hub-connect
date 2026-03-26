@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_data: {
+        Row: {
+          calorie_goal: number
+          calories: number
+          calories_consumed: number
+          created_at: string
+          date: string
+          distance: number
+          distance_goal: number
+          hydration: number
+          hydration_goal: number
+          id: string
+          step_goal: number
+          steps: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calorie_goal?: number
+          calories?: number
+          calories_consumed?: number
+          created_at?: string
+          date?: string
+          distance?: number
+          distance_goal?: number
+          hydration?: number
+          hydration_goal?: number
+          id?: string
+          step_goal?: number
+          steps?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calorie_goal?: number
+          calories?: number
+          calories_consumed?: number
+          created_at?: string
+          date?: string
+          distance?: number
+          distance_goal?: number
+          hydration?: number
+          hydration_goal?: number
+          id?: string
+          step_goal?: number
+          steps?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
