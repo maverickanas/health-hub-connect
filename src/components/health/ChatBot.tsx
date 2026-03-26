@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { ChatMessage } from '@/types';
+import { toast } from 'sonner';
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`;
 
 const ChatBot: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -22,42 +26,8 @@ const ChatBot: React.FC = () => {
     }
   }, [messages]);
 
-  const getAIResponse = (userMessage: string): string => {
-    const lower = userMessage.toLowerCase();
-
-    if (lower.includes('bmi') || lower.includes('body mass')) {
-      return "BMI (Body Mass Index) is calculated by dividing your weight in kg by your height in meters squared. A healthy BMI range is 18.5-24.9. Head to the BMI tab for instant calculations! 📊";
-    }
-    if (lower.includes('workout') || lower.includes('exercise') || lower.includes('training')) {
-      return "Here's a balanced workout split:\n\n**Mon/Thu**: Upper Body (Push-ups, Rows, Shoulder Press)\n**Tue/Fri**: Lower Body (Squats, Lunges, Deadlifts)\n**Wed/Sat**: Cardio + Core\n**Sun**: Rest & Recovery\n\nAim for 3-4 sets of 8-12 reps per exercise. Start light and progressively overload! 💪";
-    }
-    if (lower.includes('diet') || lower.includes('nutrition') || lower.includes('eat') || lower.includes('food') || lower.includes('meal')) {
-      return "A balanced nutrition plan:\n\n🥩 **Protein**: 1.6-2.2g per kg bodyweight\n🍚 **Carbs**: 3-5g per kg bodyweight\n🥑 **Fats**: 0.8-1g per kg bodyweight\n\n**Meal timing**: Eat every 3-4 hours. Pre-workout meal 1-2 hours before training. Post-workout within 30-60 minutes.";
-    }
-    if (lower.includes('water') || lower.includes('hydrat')) {
-      return "Hydration is crucial! 💧\n\n- Aim for **2-3 liters** of water daily\n- Add 500ml for every 30 min of exercise\n- Check urine color — pale yellow = good hydration\n- Electrolytes are key during intense workouts";
-    }
-    if (lower.includes('sleep') || lower.includes('rest') || lower.includes('recovery')) {
-      return "Recovery is where gains are made! 😴\n\n- **7-9 hours** of sleep per night\n- Keep a consistent sleep schedule\n- Avoid screens 1 hour before bed\n- Cool, dark room (18-20°C)\n- Consider stretching or meditation before sleep";
-    }
-    if (lower.includes('weight loss') || lower.includes('lose weight') || lower.includes('fat loss')) {
-      return "Sustainable weight loss strategy:\n\n1. **Calorie deficit**: 300-500 kcal below maintenance\n2. **High protein**: Preserves muscle mass\n3. **Strength training**: 3-4x per week\n4. **Cardio**: 150 min moderate or 75 min vigorous weekly\n5. **Track progress**: Weekly weigh-ins, same conditions\n\nAim for 0.5-1kg loss per week. Patience is key! 🎯";
-    }
-    if (lower.includes('muscle') || lower.includes('gain') || lower.includes('bulk')) {
-      return "Muscle building essentials:\n\n1. **Calorie surplus**: 200-300 kcal above maintenance\n2. **Protein**: 2g per kg bodyweight\n3. **Progressive overload**: Increase weight/reps weekly\n4. **Compound movements**: Squats, Deadlifts, Bench, Rows\n5. **Rest**: 48 hours between muscle groups\n\nConsistency over perfection! 💪";
-    }
-    if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-      return "Hey there, Elite! 👋 Ready to crush your fitness goals today? Ask me about workouts, nutrition, BMI, or any health-related topic!";
-    }
-    if (lower.includes('step') || lower.includes('walk')) {
-      return "Walking is one of the best exercises! 🚶\n\n- Aim for **10,000 steps** daily\n- Every 1,000 steps ≈ 40-50 calories burned\n- Walk after meals to improve digestion\n- Use the step tracker in the Dashboard!";
-    }
-
-    return "Great question! 🧠 I'd recommend:\n\n1. Set clear, measurable goals\n2. Track your nutrition and workouts\n3. Stay consistent — small daily improvements compound\n4. Listen to your body and rest when needed\n\nWant me to dive deeper into any specific topic? Just ask!";
-  };
-
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -70,19 +40,82 @@ const ChatBot: React.FC = () => {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI thinking delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+    // Build message history for AI (exclude the welcome message)
+    const aiMessages = messages
+      .filter(m => m.id !== '1')
+      .concat(userMsg)
+      .map(m => ({
+        role: m.role === 'user' ? 'user' as const : 'assistant' as const,
+        content: m.text,
+      }));
 
-    const response = getAIResponse(userMsg.text);
+    let assistantText = '';
+    const assistantId = (Date.now() + 1).toString();
 
-    const botMsg: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'model',
-      text: response,
-      timestamp: Date.now(),
-    };
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: aiMessages }),
+      });
 
-    setMessages(prev => [...prev, botMsg]);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'AI unavailable' }));
+        if (resp.status === 429) toast.error('Rate limit exceeded. Please wait a moment.');
+        else if (resp.status === 402) toast.error('AI credits exhausted. Please add funds.');
+        else toast.error(err.error || 'AI service error');
+        setIsTyping(false);
+        return;
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error('No stream');
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantText += content;
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.id === assistantId) {
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, text: assistantText } : m);
+                }
+                return [...prev, { id: assistantId, role: 'model', text: assistantText, timestamp: Date.now() }];
+              });
+            }
+          } catch {
+            buffer = line + '\n' + buffer;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Chat error:', e);
+      toast.error('Failed to get AI response');
+    }
+
     setIsTyping(false);
   };
 
@@ -115,18 +148,20 @@ const ChatBot: React.FC = () => {
                   <Bot size={14} className="text-luxury-neon" />
                 )}
               </div>
-              <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+              <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
                 msg.role === 'user'
                   ? 'bg-luxury-neon/10 border border-luxury-neon/20 text-foreground'
                   : 'bg-muted border border-border text-foreground/90'
               }`}>
-                {msg.text}
+                <div className="prose prose-sm prose-invert max-w-none [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:text-luxury-neon">
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                </div>
               </div>
             </motion.div>
           ))}
         </AnimatePresence>
 
-        {isTyping && (
+        {isTyping && messages[messages.length - 1]?.role !== 'model' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -158,7 +193,7 @@ const ChatBot: React.FC = () => {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isTyping}
             className="w-12 h-12 rounded-2xl bg-luxury-neon text-primary-foreground flex items-center justify-center disabled:opacity-30 shadow-[0_0_15px_rgba(204,255,0,0.2)]"
           >
             <Send size={18} />

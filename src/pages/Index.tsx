@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ViewState, ActivityData } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { supabase } from '@/integrations/supabase/client';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import AuthScreen from '@/components/health/AuthScreen';
 import Dashboard from '@/components/health/Dashboard';
@@ -9,20 +12,22 @@ import ChatBot from '@/components/health/ChatBot';
 import ActivityLogger from '@/components/health/ActivityLogger';
 import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useLocalStorage('hh_authed', false);
-  const [userName, setUserName] = useLocalStorage('hh_username', 'Elite');
-  const [userEmail, setUserEmail] = useLocalStorage('hh_email', '');
+  const { user, loading, signIn, signUp, signOut } = useAuth();
+  const profile = useProfile(user);
+  const [isGuest, setIsGuest] = useLocalStorage('hh_guest', false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [isTracking, setIsTracking] = useState(false);
 
   const [activityData, setActivityData] = useLocalStorage<ActivityData>('hh_activity', {
-    steps: 3247,
-    calories: 487,
-    distance: 2.1,
-    hydration: 1.2,
-    caloriesConsumed: 850,
+    steps: 0,
+    calories: 0,
+    distance: 0,
+    hydration: 0,
+    caloriesConsumed: 0,
     stepGoal: 10000,
     calorieGoal: 2000,
     distanceGoal: 5.0,
@@ -32,36 +37,106 @@ const Index = () => {
 
   const [streak] = useLocalStorage('hh_streak', 5);
 
-  const handleLogin = (name: string, email: string) => {
-    setUserName(name);
-    setUserEmail(email);
-    setIsAuthenticated(true);
+  // Load activity data from DB for authenticated users
+  useEffect(() => {
+    if (!user) return;
+    const loadActivity = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('activity_data')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .single();
+
+      if (data) {
+        setActivityData({
+          steps: data.steps,
+          calories: data.calories,
+          distance: Number(data.distance),
+          hydration: Number(data.hydration),
+          caloriesConsumed: data.calories_consumed,
+          stepGoal: data.step_goal,
+          calorieGoal: data.calorie_goal,
+          distanceGoal: Number(data.distance_goal),
+          hydrationGoal: Number(data.hydration_goal),
+          history: [],
+        });
+      }
+    };
+    loadActivity();
+  }, [user]);
+
+  const handleSignIn = async (email: string, password: string) => {
+    await signIn(email, password);
+    setIsGuest(false);
+  };
+
+  const handleSignUp = async (email: string, password: string, name: string) => {
+    await signUp(email, password, name);
+    toast.success('Account created! Check your email to verify.');
+    setIsGuest(false);
   };
 
   const handleGuestLogin = () => {
-    setUserName('Guest');
-    setUserEmail('guest@healthhub.app');
-    setIsAuthenticated(true);
+    setIsGuest(true);
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    if (isGuest) {
+      setIsGuest(false);
+    } else {
+      await signOut();
+    }
     setCurrentView(ViewState.DASHBOARD);
   };
 
-  const handleUpdateData = (updates: Partial<ActivityData>) => {
+  const handleUpdateData = async (updates: Partial<ActivityData>) => {
     setActivityData(prev => ({ ...prev, ...updates }));
+
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+      const merged = { ...activityData, ...updates };
+      await supabase.from('activity_data').upsert({
+        user_id: user.id,
+        date: today,
+        steps: merged.steps,
+        calories: merged.calories,
+        distance: merged.distance,
+        hydration: merged.hydration,
+        calories_consumed: merged.caloriesConsumed,
+        step_goal: merged.stepGoal,
+        calorie_goal: merged.calorieGoal,
+        distance_goal: merged.distanceGoal,
+        hydration_goal: merged.hydrationGoal,
+      }, { onConflict: 'user_id,date' });
+    }
   };
 
   const handleLogWorkout = (calories: number) => {
-    setActivityData(prev => ({
-      ...prev,
-      calories: prev.calories + calories,
-    }));
+    handleUpdateData({ calories: activityData.calories + calories });
   };
 
+  const isAuthenticated = !!user || isGuest;
+  const userName = profile?.display_name || (isGuest ? 'Guest' : 'Elite');
+  const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
+
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <Loader2 className="animate-spin text-luxury-neon" size={32} />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <AuthScreen onLogin={handleLogin} onGuestLogin={handleGuestLogin} />;
+    return (
+      <AuthScreen
+        onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
+        onGuestLogin={handleGuestLogin}
+      />
+    );
   }
 
   const pageTransition = {
