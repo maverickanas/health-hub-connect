@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Activity, Flame, Clock, Zap, Save, Loader2, CheckCircle2 } from 'lucide-react';
+import { Activity, Flame, Clock, Zap, Save, Loader2, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ACTIVITIES = [
   { name: 'Running', met: 9.8 },
@@ -46,13 +47,18 @@ const ActivityLogger: React.FC<ActivityLoggerProps> = ({ userWeight, onLogWorkou
   }, [selectedActivity, duration, intensity, userWeight, isManualCalories]);
 
   const handleLogWorkout = () => {
+    if (duration <= 0) {
+      toast.error('Please set a valid duration');
+      return;
+    }
     setIsSubmitting(true);
+    onLogWorkout(calories);
+    toast.success(`${selectedActivity.name} logged — ${calories} kcal burned!`);
+    setShowSuccess(true);
     setTimeout(() => {
-      onLogWorkout(calories);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
+      setShowSuccess(false);
       setIsSubmitting(false);
-    }, 500);
+    }, 1500);
   };
 
   return (
@@ -115,7 +121,8 @@ const ActivityLogger: React.FC<ActivityLoggerProps> = ({ userWeight, onLogWorkou
                 type="number"
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value))}
-                className="w-full bg-transparent border-b border-border py-2 text-2xl font-black text-foreground outline-none focus:border-luxury-neon transition-colors"
+                min={1}
+                className="w-full bg-transparent border-b border-border py-2 text-2xl font-black text-foreground outline-none focus:border-luxury-neon transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <span className="absolute right-0 bottom-2 text-[10px] font-bold text-muted-foreground uppercase">Min</span>
             </div>
@@ -124,15 +131,21 @@ const ActivityLogger: React.FC<ActivityLoggerProps> = ({ userWeight, onLogWorkou
             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] flex items-center gap-2">
               <Zap size={12} /> Intensity
             </label>
-            <select
-              value={intensity}
-              onChange={(e) => setIntensity(e.target.value as any)}
-              className="w-full bg-transparent border-b border-border py-2 text-xl font-black text-foreground outline-none focus:border-luxury-neon transition-colors appearance-none cursor-pointer"
-            >
-              <option value="Low" className="bg-background">Low</option>
-              <option value="Medium" className="bg-background">Medium</option>
-              <option value="High" className="bg-background">High</option>
-            </select>
+            <div className="flex flex-col gap-1.5">
+              {(['Low', 'Medium', 'High'] as const).map(level => (
+                <button
+                  key={level}
+                  onClick={() => setIntensity(level)}
+                  className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    intensity === level
+                      ? 'bg-luxury-neon/15 text-luxury-neon border border-luxury-neon/30'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -142,7 +155,7 @@ const ActivityLogger: React.FC<ActivityLoggerProps> = ({ userWeight, onLogWorkou
           <div className="relative bg-gradient-to-r from-muted to-transparent backdrop-blur-md rounded-3xl p-6 border border-border flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.2)]">
-                <Flame className="text-orange-500 animate-pulse" size={24} />
+                <Flame className="text-orange-500" size={24} />
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">Estimated Burn</p>
@@ -152,7 +165,7 @@ const ActivityLogger: React.FC<ActivityLoggerProps> = ({ userWeight, onLogWorkou
                       type="number"
                       value={calories}
                       onChange={(e) => setCalories(Number(e.target.value))}
-                      className="bg-transparent text-3xl font-black text-foreground w-24 outline-none border-b border-luxury-neon/30 focus:border-luxury-neon"
+                      className="bg-transparent text-3xl font-black text-foreground w-24 outline-none border-b border-luxury-neon/30 focus:border-luxury-neon [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       autoFocus
                     />
                   ) : (
@@ -190,6 +203,7 @@ const ActivityLogger: React.FC<ActivityLoggerProps> = ({ userWeight, onLogWorkou
           className="w-full bg-secondary text-luxury-neon border border-luxury-neon/50 px-6 py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
           initial={{ boxShadow: "0px 0px 0px 0px rgba(206, 242, 69, 0)" }}
           whileHover={{ boxShadow: "0px 0px 20px 0px rgba(206, 242, 69, 0.4)" }}
+          whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.3 }}
         >
           {isSubmitting ? (
