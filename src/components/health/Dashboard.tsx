@@ -5,6 +5,7 @@ import { ActivityData } from '@/types';
 import ConcentricHUD from './ConcentricHUD';
 import StepCounterWidget from './StepCounterWidget';
 import ActivityHistoryChart from './ActivityHistoryChart';
+import NotificationToggle from './NotificationToggle';
 
 interface DashboardProps {
   data: ActivityData;
@@ -14,9 +15,12 @@ interface DashboardProps {
   isTracking: boolean;
   onUpdateData: (updates: Partial<ActivityData>) => void;
   userId?: string;
+  notificationsEnabled?: boolean;
+  onToggleNotifications?: () => void;
+  onRequestNotificationPermission?: () => Promise<boolean>;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId, notificationsEnabled = false, onToggleNotifications, onRequestNotificationPermission }) => {
   const [customIntake, setCustomIntake] = useState('');
   const [activeSection, setActiveSection] = useState<'calories' | 'hydration'>('calories');
 
@@ -43,16 +47,25 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
           <p className="text-[9px] font-extrabold text-luxury-neon/60 uppercase tracking-[0.4em]">Welcome back</p>
           <h2 className="text-xl font-black text-foreground tracking-tight uppercase">{userName}</h2>
         </div>
-        {streak > 0 && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-luxury-neon/10 border border-luxury-neon/20"
-          >
-            <span className="text-sm">🔥</span>
-            <span className="text-[10px] font-black text-luxury-neon">{streak}d</span>
-          </motion.div>
-        )}
+        <div className="flex items-center gap-2">
+          {onToggleNotifications && onRequestNotificationPermission && (
+            <NotificationToggle
+              enabled={notificationsEnabled}
+              onToggle={onToggleNotifications}
+              onRequestPermission={onRequestNotificationPermission}
+            />
+          )}
+          {streak > 0 && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-luxury-neon/10 border border-luxury-neon/20"
+            >
+              <span className="text-sm">🔥</span>
+              <span className="text-[10px] font-black text-luxury-neon">{streak}d</span>
+            </motion.div>
+          )}
+        </div>
       </div>
 
       {/* Concentric HUD */}
