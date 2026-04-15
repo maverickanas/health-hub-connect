@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Footprints, Plus, Droplets, Minus, TrendingUp } from 'lucide-react';
 import { ActivityData } from '@/types';
 import ConcentricHUD from './ConcentricHUD';
+import StepCounterWidget from './StepCounterWidget';
+import ActivityHistoryChart from './ActivityHistoryChart';
 
 interface DashboardProps {
   data: ActivityData;
