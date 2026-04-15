@@ -13,9 +13,10 @@ interface DashboardProps {
   onToggleTracking: () => void;
   isTracking: boolean;
   onUpdateData: (updates: Partial<ActivityData>) => void;
+  userId?: string;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId }) => {
   const [customIntake, setCustomIntake] = useState('');
   const [activeSection, setActiveSection] = useState<'calories' | 'hydration'>('calories');
 
