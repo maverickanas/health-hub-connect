@@ -145,6 +145,7 @@ const Index = () => {
                 onToggleTracking={() => setIsTracking(!isTracking)}
                 isTracking={isTracking}
                 onUpdateData={handleUpdateData}
+                userId={user?.id}
               />
             </motion.div>
           )}
