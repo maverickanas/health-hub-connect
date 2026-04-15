@@ -5,6 +5,7 @@ import { ActivityData } from '@/types';
 import ConcentricHUD from './ConcentricHUD';
 import StepCounterWidget from './StepCounterWidget';
 import ActivityHistoryChart from './ActivityHistoryChart';
+import NotificationToggle from './NotificationToggle';
 
 interface DashboardProps {
   data: ActivityData;
@@ -14,9 +15,12 @@ interface DashboardProps {
   isTracking: boolean;
   onUpdateData: (updates: Partial<ActivityData>) => void;
   userId?: string;
+  notificationsEnabled?: boolean;
+  onToggleNotifications?: () => void;
+  onRequestNotificationPermission?: () => Promise<boolean>;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId, notificationsEnabled = false, onToggleNotifications, onRequestNotificationPermission }) => {
   const [customIntake, setCustomIntake] = useState('');
   const [activeSection, setActiveSection] = useState<'calories' | 'hydration'>('calories');
 
