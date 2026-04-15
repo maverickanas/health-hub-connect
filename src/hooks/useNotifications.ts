@@ -33,13 +33,12 @@ export function useNotifications(config: NotificationConfig) {
   const sendNotification = useCallback((title: string, body: string, icon?: string) => {
     if (permissionRef.current !== 'granted') return;
     try {
-      new Notification(title, {
+      const options: NotificationOptions & { renotify?: boolean } = {
         body,
         icon: icon || '/favicon.ico',
-        badge: '/favicon.ico',
         tag: title.toLowerCase().replace(/\s/g, '-'),
-        renotify: true,
-      });
+      };
+      new Notification(title, options);
     } catch {
       // Fallback: some browsers don't support Notification constructor
     }
