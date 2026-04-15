@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Footprints, Plus, Droplets, Minus, TrendingUp } from 'lucide-react';
 import { ActivityData } from '@/types';
 import ConcentricHUD from './ConcentricHUD';
+import StepCounterWidget from './StepCounterWidget';
+import ActivityHistoryChart from './ActivityHistoryChart';
 
 interface DashboardProps {
   data: ActivityData;
@@ -11,9 +13,10 @@ interface DashboardProps {
   onToggleTracking: () => void;
   isTracking: boolean;
   onUpdateData: (updates: Partial<ActivityData>) => void;
+  userId?: string;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId }) => {
   const [customIntake, setCustomIntake] = useState('');
   const [activeSection, setActiveSection] = useState<'calories' | 'hydration'>('calories');
 
@@ -172,6 +175,18 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
           )}
         </AnimatePresence>
       </div>
+
+      {/* Step Counter */}
+      <div className="px-6 pb-4">
+        <StepCounterWidget onStepsChange={(steps) => onUpdateData({ steps: data.steps + steps })} />
+      </div>
+
+      {/* Activity History Chart */}
+      {userId && (
+        <div className="px-6 pb-6">
+          <ActivityHistoryChart userId={userId} />
+        </div>
+      )}
 
       {/* Stat Cards */}
       <div className="px-6 pb-6">
