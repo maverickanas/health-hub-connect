@@ -176,9 +176,20 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
         </AnimatePresence>
       </div>
 
+      {/* Step Counter */}
+      <div className="px-6 pb-4">
+        <StepCounterWidget onStepsChange={(steps) => onUpdateData({ steps: data.steps + steps })} />
+      </div>
+
+      {/* Activity History Chart */}
+      {userId && (
+        <div className="px-6 pb-6">
+          <ActivityHistoryChart userId={userId} />
+        </div>
+      )}
+
       {/* Stat Cards */}
       <div className="px-6 pb-6">
-        <div className="grid grid-cols-2 gap-3">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
