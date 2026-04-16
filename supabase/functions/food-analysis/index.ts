@@ -5,12 +5,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024; // 1.5 MB
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { image } = await req.json();
-    if (!image) throw new Error("No image provided");
+    const body = await req.json();
+    const { image } = body;
+
+    if (!image || typeof image !== "string") {
+      return new Response(JSON.stringify({ error: "No valid image provided" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (image.length > MAX_IMAGE_BYTES) {
+      return new Response(JSON.stringify({ error: "Image too large (max 1.5 MB)" }), {
+        status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -72,10 +86,8 @@ Be as accurate as possible with nutritional estimates. If you cannot identify th
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || "";
     
-    // Parse the JSON from the AI response
     let analysis;
     try {
-      // Try to extract JSON from the response (handle potential markdown wrapping)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);
     } catch {
@@ -90,7 +102,7 @@ Be as accurate as possible with nutritional estimates. If you cannot identify th
     });
   } catch (e) {
     console.error("food-analysis error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "An error occurred processing your request" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
