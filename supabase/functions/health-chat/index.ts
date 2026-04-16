@@ -9,7 +9,35 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const body = await req.json();
+    const { messages } = body;
+
+    // Input validation
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "Messages must be a non-empty array" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (messages.length > 50) {
+      return new Response(JSON.stringify({ error: "Too many messages (max 50)" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Validate each message has role and content, cap content length
+    const MAX_CONTENT_LENGTH = 10000;
+    for (const msg of messages) {
+      if (!msg.role || typeof msg.role !== "string" || !["user", "assistant"].includes(msg.role)) {
+        return new Response(JSON.stringify({ error: "Invalid message role" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!msg.content || typeof msg.content !== "string" || msg.content.length > MAX_CONTENT_LENGTH) {
+        return new Response(JSON.stringify({ error: `Message content must be a string under ${MAX_CONTENT_LENGTH} characters` }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -66,7 +94,7 @@ If asked about medical conditions, recommend consulting a healthcare professiona
     });
   } catch (e) {
     console.error("health-chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "An error occurred processing your request" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
