@@ -12,6 +12,10 @@ interface GeoPoint {
   timestamp: number;
 }
 
+interface GPSTrackerProps {
+  onWorkoutSave?: (distance: number, calories: number, duration: number) => void;
+}
+
 const haversineDistance = (a: GeoPoint, b: GeoPoint): number => {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -22,7 +26,6 @@ const haversineDistance = (a: GeoPoint, b: GeoPoint): number => {
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 };
 
-// Custom neon marker icon
 const neonIcon = new L.DivIcon({
   className: '',
   html: `<div style="width:20px;height:20px;background:rgba(204,255,0,0.9);border-radius:50%;box-shadow:0 0 16px rgba(204,255,0,0.6);border:2px solid rgba(204,255,0,0.4);"></div>`,
@@ -30,16 +33,24 @@ const neonIcon = new L.DivIcon({
   iconAnchor: [10, 10],
 });
 
-// Auto-pan to current position
-const MapFollower: React.FC<{ position: [number, number] | null }> = ({ position }) => {
+const MapFollower: React.FC<{ position: [number, number] | null; shouldFly?: boolean }> = ({ position, shouldFly }) => {
   const map = useMap();
+  const hasFlown = useRef(false);
+
   useEffect(() => {
-    if (position) map.setView(position, map.getZoom(), { animate: true });
-  }, [position, map]);
+    if (!position) return;
+    if (!hasFlown.current && shouldFly) {
+      map.flyTo(position, 17, { duration: 2, easeLinearity: 0.25 });
+      hasFlown.current = true;
+    } else {
+      map.setView(position, map.getZoom(), { animate: true });
+    }
+  }, [position, map, shouldFly]);
+
   return null;
 };
 
-const GPSTracker: React.FC = () => {
+const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const [isTracking, setIsTracking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -54,12 +65,11 @@ const GPSTracker: React.FC = () => {
   const lastPointRef = useRef<GeoPoint | null>(null);
 
   const pace = elapsed > 0 && distance > 0.01 ? (elapsed / 60) / distance : 0;
-  const speed = elapsed > 0 && distance > 0.01 ? (distance / (elapsed / 3600)) : 0;
   const caloriesBurned = Math.round(distance * 60);
 
   const mapCenter: [number, number] = currentPosition
     ? [currentPosition.lat, currentPosition.lng]
-    : [20.5937, 78.9629]; // Default India center
+    : [20.5937, 78.9629];
 
   const routeLatLngs: [number, number][] = points.map(p => [p.lat, p.lng]);
 
@@ -133,6 +143,16 @@ const GPSTracker: React.FC = () => {
     }
   };
 
+  const handleSaveWorkout = () => {
+    if (onWorkoutSave) {
+      // Additive: pass the session delta values
+      onWorkoutSave(distance, caloriesBurned, elapsed);
+      toast.success('Workout saved & synced to dashboard!');
+    }
+    setWorkoutDone(false); setElapsed(0); setDistance(0); setPoints([]);
+    lastPointRef.current = null; setCurrentPosition(null);
+  };
+
   const handleReset = () => {
     setWorkoutDone(false); setElapsed(0); setDistance(0); setPoints([]);
     lastPointRef.current = null; setCurrentPosition(null);
@@ -140,7 +160,6 @@ const GPSTracker: React.FC = () => {
 
   useEffect(() => { return () => { stopGPS(); stopTimer(); }; }, [stopGPS, stopTimer]);
 
-  // Get initial position on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -153,7 +172,6 @@ const GPSTracker: React.FC = () => {
 
   return (
     <div className="h-full w-full flex flex-col bg-background overflow-hidden">
-      {/* Map Area */}
       <div className="flex-1 relative">
         <MapContainer
           center={mapCenter}
@@ -163,10 +181,8 @@ const GPSTracker: React.FC = () => {
           className="h-full w-full z-0"
           style={{ background: '#0A0A0A' }}
         >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
-          <MapFollower position={currentPosition ? [currentPosition.lat, currentPosition.lng] : null} />
+          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          <MapFollower position={currentPosition ? [currentPosition.lat, currentPosition.lng] : null} shouldFly={true} />
           {currentPosition && (
             <Marker position={[currentPosition.lat, currentPosition.lng]} icon={neonIcon} />
           )}
@@ -175,7 +191,6 @@ const GPSTracker: React.FC = () => {
           )}
         </MapContainer>
 
-        {/* GPS Error overlay */}
         {gpsError && (
           <div className="absolute top-32 left-4 right-4 z-[1000]">
             <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-3 flex items-center gap-3 backdrop-blur-sm">
@@ -185,34 +200,43 @@ const GPSTracker: React.FC = () => {
           </div>
         )}
 
-        {/* Header overlay */}
         <div className="absolute top-0 left-0 right-0 z-[1000] bg-gradient-to-b from-background via-background/80 to-transparent pt-14 pb-10 px-6 text-center pointer-events-none">
-          <p className="text-[9px] font-extrabold text-luxury-neon/60 uppercase tracking-[0.4em]">GPS Live Tracking</p>
+          <p className="text-[9px] font-extrabold text-primary/60 uppercase tracking-[0.4em]">GPS Live Tracking</p>
           <h1 className="text-lg font-black text-foreground uppercase tracking-wider mt-1">
-            Route <span className="text-luxury-neon">Tracker</span>
+            Route <span className="text-primary">Tracker</span>
           </h1>
         </div>
       </div>
 
-      {/* Control Panel */}
       <div className="bg-background border-t border-border px-6 pt-5 pb-28 space-y-4">
         <AnimatePresence>
           {workoutDone && !isTracking && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="glass-panel rounded-2xl p-4 flex items-center gap-3">
-              <Trophy size={20} className="text-luxury-neon shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs font-black text-foreground uppercase">Workout Complete!</p>
-                <p className="text-[10px] text-muted-foreground">{distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal burned</p>
+              className="glass-panel rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Trophy size={20} className="text-primary shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-black text-foreground uppercase">Workout Complete!</p>
+                  <p className="text-[10px] text-muted-foreground">{distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal burned</p>
+                </div>
               </div>
-              <button onClick={handleReset} className="text-[9px] font-bold text-luxury-neon uppercase tracking-wider">Reset</button>
+              <div className="flex gap-3">
+                <button onClick={handleReset}
+                  className="flex-1 py-3 rounded-xl border border-border text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Discard
+                </button>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={handleSaveWorkout}
+                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(204,255,0,0.15)]">
+                  Save & Sync
+                </motion.button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {!isTracking && !workoutDone && (
           <motion.button whileTap={{ scale: 0.96 }} onClick={handleStart}
-            className="w-full py-5 rounded-2xl bg-luxury-neon text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(204,255,0,0.2)] neon-glow">
+            className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(204,255,0,0.2)] neon-glow">
             <Play size={20} fill="currentColor" /> Start Workout
           </motion.button>
         )}
@@ -220,7 +244,7 @@ const GPSTracker: React.FC = () => {
         {isTracking && (
           <div className="flex gap-3">
             <motion.button whileTap={{ scale: 0.96 }} onClick={isPaused ? handleResume : handlePause}
-              className="flex-1 py-5 rounded-2xl border border-luxury-neon/30 text-luxury-neon font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2">
+              className="flex-1 py-5 rounded-2xl border border-primary/30 text-primary font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2">
               {isPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
               {isPaused ? 'Resume' : 'Pause'}
             </motion.button>

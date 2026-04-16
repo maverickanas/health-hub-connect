@@ -36,7 +36,7 @@ const Index = () => {
   const [activityData, setActivityData] = useLocalStorage<ActivityData>('hh_activity', EMPTY_ACTIVITY);
   const [streak, setStreak] = useState(0);
 
-  const { requestPermission, sendNotification } = useNotifications({
+  const { requestPermission } = useNotifications({
     waterIntervalMinutes: 30, stepCheckIntervalMinutes: 60,
     stepGoal: activityData.stepGoal, currentSteps: activityData.steps,
     hydration: activityData.hydration, hydrationGoal: activityData.hydrationGoal,
@@ -46,53 +46,94 @@ const Index = () => {
   // Load activity data
   useEffect(() => {
     if (!user) { setDataLoaded(true); return; }
+    let isCancelled = false;
     const loadActivity = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { data } = await supabase.from('activity_data').select('*').eq('user_id', user.id).eq('date', today).single();
-      if (data) {
-        setActivityData({
-          steps: data.steps ?? 0, calories: data.calories ?? 0,
-          distance: Number(data.distance ?? 0), hydration: Number(data.hydration ?? 0),
-          caloriesConsumed: data.calories_consumed ?? 0, stepGoal: data.step_goal ?? 10000,
-          calorieGoal: data.calorie_goal ?? 2000, distanceGoal: Number(data.distance_goal ?? 5),
-          hydrationGoal: Number(data.hydration_goal ?? 3), history: [],
-        });
-      } else {
-        setActivityData(EMPTY_ACTIVITY);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabase.from('activity_data').select('*').eq('user_id', user.id).eq('date', today).single();
+        if (isCancelled) return;
+        if (data) {
+          setActivityData({
+            steps: data.steps ?? 0, calories: data.calories ?? 0,
+            distance: Number(data.distance ?? 0), hydration: Number(data.hydration ?? 0),
+            caloriesConsumed: data.calories_consumed ?? 0, stepGoal: data.step_goal ?? 10000,
+            calorieGoal: data.calorie_goal ?? 2000, distanceGoal: Number(data.distance_goal ?? 5),
+            hydrationGoal: Number(data.hydration_goal ?? 3), history: [],
+          });
+        } else {
+          setActivityData(EMPTY_ACTIVITY);
+        }
+      } catch {
+        // ignore fetch errors
+      } finally {
+        if (!isCancelled) setDataLoaded(true);
       }
-      setDataLoaded(true);
     };
     loadActivity();
+    return () => { isCancelled = true; };
+  }, [user]);
+
+  // Supabase Realtime subscription for cross-device sync
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('activity-sync')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'activity_data',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+          const d = payload.new as any;
+          const today = new Date().toISOString().split('T')[0];
+          if (d.date === today) {
+            setActivityData(prev => ({
+              ...prev,
+              steps: d.steps ?? prev.steps,
+              calories: d.calories ?? prev.calories,
+              distance: Number(d.distance ?? prev.distance),
+              hydration: Number(d.hydration ?? prev.hydration),
+              caloriesConsumed: d.calories_consumed ?? prev.caloriesConsumed,
+              stepGoal: d.step_goal ?? prev.stepGoal,
+              calorieGoal: d.calorie_goal ?? prev.calorieGoal,
+              distanceGoal: Number(d.distance_goal ?? prev.distanceGoal),
+              hydrationGoal: Number(d.hydration_goal ?? prev.hydrationGoal),
+            }));
+          }
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   // Check if new user needs onboarding
   useEffect(() => {
     if (!user || !profile || !dataLoaded) return;
-    // If display_name is still default 'Elite' and no height set, show onboarding
     const isNewUser = profile.display_name === 'Elite' && !sessionStorage.getItem('hh_onboarding_done');
-    if (isNewUser) {
-      setShowOnboarding(true);
-    }
+    if (isNewUser) setShowOnboarding(true);
   }, [user, profile, dataLoaded]);
 
   // Calculate streak
   useEffect(() => {
     if (!user) return;
     const calcStreak = async () => {
-      const { data: rows } = await supabase
-        .from('activity_data').select('date, steps, step_goal')
-        .eq('user_id', user.id).order('date', { ascending: false }).limit(60);
-      if (!rows?.length) { setStreak(0); return; }
-      let count = 0;
-      const today = new Date();
-      for (let i = 0; i < 60; i++) {
-        const d = new Date(today); d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const row = rows.find(r => r.date === dateStr);
-        if (row && row.steps >= (row.step_goal || 10000) * 0.5) { count++; }
-        else if (i > 0) { break; }
-      }
-      setStreak(count);
+      try {
+        const { data: rows } = await supabase
+          .from('activity_data').select('date, steps, step_goal')
+          .eq('user_id', user.id).order('date', { ascending: false }).limit(60);
+        if (!rows?.length) { setStreak(0); return; }
+        let count = 0;
+        const today = new Date();
+        for (let i = 0; i < 60; i++) {
+          const d = new Date(today); d.setDate(d.getDate() - i);
+          const dateStr = d.toISOString().split('T')[0];
+          const row = rows.find(r => r.date === dateStr);
+          if (row && row.steps >= (row.step_goal || 10000) * 0.5) count++;
+          else if (i > 0) break;
+        }
+        setStreak(count);
+      } catch { setStreak(0); }
     };
     calcStreak();
   }, [user, activityData.steps]);
@@ -118,24 +159,46 @@ const Index = () => {
   const handleGuestLogin = () => setIsGuest(true);
 
   const handleLogout = async () => {
-    if (isGuest) { setIsGuest(false); } else { await signOut(); }
+    if (isGuest) setIsGuest(false); else await signOut();
     sessionStorage.removeItem('hh_welcome_shown');
     sessionStorage.removeItem('hh_onboarding_done');
     setActivityData(EMPTY_ACTIVITY); setCurrentView(ViewState.HOME);
   };
 
+  const persistToDb = async (merged: ActivityData) => {
+    if (!user) return;
+    const today = new Date().toISOString().split('T')[0];
+    await supabase.from('activity_data').upsert({
+      user_id: user.id, date: today, steps: merged.steps, calories: merged.calories,
+      distance: merged.distance, hydration: merged.hydration, calories_consumed: merged.caloriesConsumed,
+      step_goal: merged.stepGoal, calorie_goal: merged.calorieGoal,
+      distance_goal: merged.distanceGoal, hydration_goal: merged.hydrationGoal,
+    }, { onConflict: 'user_id,date' });
+  };
+
   const handleUpdateData = async (updates: Partial<ActivityData>) => {
-    setActivityData(prev => ({ ...prev, ...updates }));
-    if (user) {
-      const today = new Date().toISOString().split('T')[0];
-      const merged = { ...activityData, ...updates };
-      await supabase.from('activity_data').upsert({
-        user_id: user.id, date: today, steps: merged.steps, calories: merged.calories,
-        distance: merged.distance, hydration: merged.hydration, calories_consumed: merged.caloriesConsumed,
-        step_goal: merged.stepGoal, calorie_goal: merged.calorieGoal,
-        distance_goal: merged.distanceGoal, hydration_goal: merged.hydrationGoal,
-      }, { onConflict: 'user_id,date' });
-    }
+    const merged = { ...activityData, ...updates };
+    setActivityData(merged); // optimistic
+    await persistToDb(merged);
+  };
+
+  // ADDITIVE workout save from GPS tracker
+  const handleWorkoutSave = async (distanceKm: number, caloriesBurned: number, _durationSec: number) => {
+    const merged = {
+      ...activityData,
+      distance: activityData.distance + distanceKm,
+      calories: activityData.calories + caloriesBurned,
+    };
+    setActivityData(merged);
+    await persistToDb(merged);
+    setCurrentView(ViewState.HOME); // redirect to dashboard
+  };
+
+  // Food logged from Lens
+  const handleFoodLogged = async (calories: number, _name: string) => {
+    const merged = { ...activityData, caloriesConsumed: activityData.caloriesConsumed + calories };
+    setActivityData(merged);
+    await persistToDb(merged);
   };
 
   const handleToggleNotifications = useCallback(() => {
@@ -154,6 +217,13 @@ const Index = () => {
     sessionStorage.setItem('hh_welcome_shown', 'true');
   };
 
+  const handleUpdateGoals = async (updates: { stepGoal?: number; calorieGoal?: number; hydrationGoal?: number }) => {
+    const merged = { ...activityData, ...updates };
+    setActivityData(merged);
+    await persistToDb(merged);
+    toast.success('Target synchronized');
+  };
+
   const isAuthenticated = !!user || isGuest;
   const userName = profile?.display_name || (isGuest ? 'Guest' : user?.email?.split('@')[0] || 'User');
   const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
@@ -161,7 +231,7 @@ const Index = () => {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin text-luxury-neon" size={32} />
+        <Loader2 className="animate-spin text-primary" size={32} />
       </div>
     );
   }
@@ -195,17 +265,25 @@ const Index = () => {
             </motion.div>
           )}
           {currentView === ViewState.LENS && (
-            <motion.div key="lens" {...pageTransition} className="h-full w-full"><FoodLens /></motion.div>
+            <motion.div key="lens" {...pageTransition} className="h-full w-full">
+              <FoodLens onFoodLogged={handleFoodLogged} />
+            </motion.div>
           )}
           {currentView === ViewState.TRACK && (
-            <motion.div key="track" {...pageTransition} className="h-full w-full"><GPSTracker /></motion.div>
+            <motion.div key="track" {...pageTransition} className="h-full w-full">
+              <GPSTracker onWorkoutSave={handleWorkoutSave} />
+            </motion.div>
           )}
           {currentView === ViewState.COACH && (
-            <motion.div key="coach" {...pageTransition} className="h-full w-full"><ChatBot /></motion.div>
+            <motion.div key="coach" {...pageTransition} className="h-full w-full">
+              <ChatBot onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
+            </motion.div>
           )}
           {currentView === ViewState.ME && (
             <motion.div key="me" {...pageTransition} className="h-full w-full">
-              <ProfileScreen userName={userName} email={userEmail} onLogout={handleLogout} />
+              <ProfileScreen userName={userName} email={userEmail} onLogout={handleLogout}
+                stepGoal={activityData.stepGoal} calorieGoal={activityData.calorieGoal}
+                hydrationGoal={activityData.hydrationGoal} onUpdateGoals={handleUpdateGoals} />
             </motion.div>
           )}
         </AnimatePresence>
