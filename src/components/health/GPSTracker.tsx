@@ -168,15 +168,45 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
 
   useEffect(() => { return () => { stopGPS(); stopTimer(); }; }, [stopGPS, stopTimer]);
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp }),
-        () => {},
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
+  const checkGeolocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGpsError('GPS not available on this device');
+      return;
     }
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp });
+        setGpsError(null);
+      },
+      (err) => {
+        if (err.code === 1) setGpsError('Location access denied. Please enable GPS.');
+        else if (err.code === 2) setGpsError('GPS unavailable');
+        else setGpsError('GPS timeout — move to open area');
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
   }, []);
+
+  const handleRetryGPS = useCallback(() => {
+    toast.info('Retrying GPS…');
+    checkGeolocation();
+    if (isTracking) {
+      stopGPS();
+      startGPS();
+    }
+  }, [checkGeolocation, isTracking, startGPS, stopGPS]);
+
+  useEffect(() => {
+    checkGeolocation();
+  }, [checkGeolocation]);
+
+  // Auto re-check when an error appears
+  useEffect(() => {
+    if (!gpsError) return;
+    const id = setTimeout(() => checkGeolocation(), 4000);
+    return () => clearTimeout(id);
+  }, [gpsError, checkGeolocation]);
 
   const secondaryMetric = activityMode === 'cycling'
     ? { value: speed > 0 ? speed.toFixed(1) : '--', label: 'Speed (KM/H)' }
