@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, Clock, Navigation, Zap, Trophy, AlertTriangle, Footprints, Bike } from 'lucide-react';
+import { Play, Pause, Square, Clock, Navigation, Zap, Trophy, AlertTriangle, Footprints, Bike, RotateCw } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -168,15 +168,45 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
 
   useEffect(() => { return () => { stopGPS(); stopTimer(); }; }, [stopGPS, stopTimer]);
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp }),
-        () => {},
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
+  const checkGeolocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGpsError('GPS not available on this device');
+      return;
     }
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp });
+        setGpsError(null);
+      },
+      (err) => {
+        if (err.code === 1) setGpsError('Location access denied. Please enable GPS.');
+        else if (err.code === 2) setGpsError('GPS unavailable');
+        else setGpsError('GPS timeout — move to open area');
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
   }, []);
+
+  const handleRetryGPS = useCallback(() => {
+    toast.info('Retrying GPS…');
+    checkGeolocation();
+    if (isTracking) {
+      stopGPS();
+      startGPS();
+    }
+  }, [checkGeolocation, isTracking, startGPS, stopGPS]);
+
+  useEffect(() => {
+    checkGeolocation();
+  }, [checkGeolocation]);
+
+  // Auto re-check when an error appears
+  useEffect(() => {
+    if (!gpsError) return;
+    const id = setTimeout(() => checkGeolocation(), 4000);
+    return () => clearTimeout(id);
+  }, [gpsError, checkGeolocation]);
 
   const secondaryMetric = activityMode === 'cycling'
     ? { value: speed > 0 ? speed.toFixed(1) : '--', label: 'Speed (KM/H)' }
@@ -222,19 +252,34 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       </div>
 
       {/* GPS Error toast */}
-      {gpsError && (
-        <div className="absolute top-32 left-4 right-4 z-[1000]">
-          <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-3 flex items-center gap-3 backdrop-blur-xl">
-            <AlertTriangle size={14} className="text-destructive shrink-0" />
-            <p className="text-[10px] font-bold text-destructive">{gpsError}</p>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {gpsError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-32 left-4 right-4 z-[1000]"
+          >
+            <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-3 flex items-center gap-3 backdrop-blur-xl">
+              <AlertTriangle size={14} className="text-destructive shrink-0" />
+              <p className="flex-1 text-[10px] font-bold text-destructive">{gpsError}</p>
+              <button
+                onClick={handleRetryGPS}
+                className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-destructive/20 border border-destructive/40 text-[9px] font-black text-destructive uppercase tracking-wider hover:bg-destructive/30 transition-colors"
+              >
+                <RotateCw size={10} /> Retry
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Floating Glassmorphic Control Panel */}
+      {/* Floating Glassmorphic Control Panel — sits above bottom nav with safe-area */}
       <div
-        className="absolute bottom-20 left-0 right-0 z-[1000] rounded-t-[40px] border-t border-white/10 px-6 pt-5 pb-6 space-y-4"
+        className="absolute left-0 right-0 z-[1000] rounded-t-[40px] border-t border-white/10 px-6 pt-5 space-y-4"
         style={{
+          bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: '1.5rem',
           background: 'rgba(10, 10, 10, 0.4)',
           backdropFilter: 'blur(28px) saturate(160%)',
           WebkitBackdropFilter: 'blur(28px) saturate(160%)',
