@@ -98,7 +98,7 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
               max={f.max}
               className="goal-input flex-1 bg-transparent text-right text-2xl font-black text-foreground outline-none appearance-none w-full min-w-0"
             />
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider pb-1">{f.unit}</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider pb-1">{f.unit}</span>
           </div>
         </motion.div>
       ))}
