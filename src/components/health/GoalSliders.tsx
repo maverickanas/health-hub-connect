@@ -23,16 +23,19 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
 
   const fields = [
     {
+      key: 'step' as const,
       icon: Footprints, label: 'Step Target', unit: 'steps',
       value: stepInput, setValue: setStepInput,
       color: 'text-amber-400', step: '1', min: 1000, max: 50000,
     },
     {
+      key: 'calorie' as const,
       icon: Flame, label: 'Calorie Target', unit: 'kcal',
       value: calorieInput, setValue: setCalorieInput,
       color: 'text-primary', step: '1', min: 500, max: 8000,
     },
     {
+      key: 'hydration' as const,
       icon: Droplets, label: 'Water Target', unit: 'L',
       value: hydrationInput, setValue: setHydrationInput,
       color: 'text-cyan-400', step: '0.1', min: 0.5, max: 10,
