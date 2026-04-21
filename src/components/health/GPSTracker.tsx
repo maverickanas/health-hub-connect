@@ -52,20 +52,23 @@ const MapFollower: React.FC<{ position: [number, number] | null; shouldFly?: boo
   return null;
 };
 
+type WorkoutState = 'idle' | 'active' | 'paused';
+
 const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
-  const [isTracking, setIsTracking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [workoutState, setWorkoutState] = useState<WorkoutState>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [distance, setDistance] = useState(0);
   const [points, setPoints] = useState<GeoPoint[]>([]);
   const [currentPosition, setCurrentPosition] = useState<GeoPoint | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const [workoutDone, setWorkoutDone] = useState(false);
   const [activityMode, setActivityMode] = useState<ActivityMode>('walking');
+  const [isSaving, setIsSaving] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPointRef = useRef<GeoPoint | null>(null);
+  const isPausedRef = useRef(false);
+  isPausedRef.current = workoutState === 'paused';
 
   // Pace = min/km (walking), Speed = km/h (cycling)
   const pace = elapsed > 0 && distance > 0.01 ? (elapsed / 60) / distance : 0;
@@ -99,10 +102,9 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       (pos) => {
         const point: GeoPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
         setCurrentPosition(point);
-        if (!isPaused) {
+        if (!isPausedRef.current) {
           if (lastPointRef.current) {
             const d = haversineDistance(lastPointRef.current, point);
-            // Cycling allows larger jumps between points
             const maxJump = activityMode === 'cycling' ? 1.5 : 0.5;
             if (d > 0.003 && d < maxJump) {
               setDistance(prev => prev + d);
@@ -121,7 +123,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       },
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
     );
-  }, [isPaused, activityMode]);
+  }, [activityMode]);
 
   const stopGPS = useCallback(() => {
     if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
@@ -136,34 +138,46 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   }, []);
 
   const handleStart = () => {
-    setIsTracking(true); setIsPaused(false); setWorkoutDone(false);
+    setWorkoutState('active');
     setElapsed(0); setDistance(0); setPoints([]); lastPointRef.current = null;
     startGPS(); startTimer();
   };
 
-  const handlePause = () => { setIsPaused(true); stopTimer(); };
-  const handleResume = () => { setIsPaused(false); lastPointRef.current = null; startTimer(); };
+  const handlePause = () => { setWorkoutState('paused'); stopTimer(); };
+  const handleResume = () => { setWorkoutState('active'); lastPointRef.current = null; startTimer(); };
 
   const handleStop = () => {
-    stopGPS(); stopTimer(); setIsTracking(false); setIsPaused(false);
-    if (distance > 0.01 || elapsed > 10) {
-      setWorkoutDone(true);
-      toast.success(`Workout complete! ${distance.toFixed(2)} km in ${formatTime(elapsed)}`);
-    }
+    // Stop = abandon without saving
+    stopGPS(); stopTimer();
+    setWorkoutState('idle');
+    setElapsed(0); setDistance(0); setPoints([]);
+    lastPointRef.current = null;
+    toast.info('Workout discarded');
   };
 
-  const handleSaveWorkout = () => {
-    if (onWorkoutSave) {
-      onWorkoutSave(distance, caloriesBurned, elapsed);
-      toast.success('Workout saved & synced to dashboard!');
+  const handleFinishAndSave = async () => {
+    if (isSaving) return;
+    if (distance < 0.01 && elapsed < 10) {
+      toast.error('Workout too short to save');
+      return;
     }
-    setWorkoutDone(false); setElapsed(0); setDistance(0); setPoints([]);
-    lastPointRef.current = null; setCurrentPosition(null);
-  };
-
-  const handleReset = () => {
-    setWorkoutDone(false); setElapsed(0); setDistance(0); setPoints([]);
-    lastPointRef.current = null; setCurrentPosition(null);
+    setIsSaving(true);
+    try {
+      stopGPS(); stopTimer();
+      if (onWorkoutSave) {
+        await onWorkoutSave(distance, caloriesBurned, elapsed);
+      }
+      toast.success(`Saved! ${distance.toFixed(2)} km · ${caloriesBurned} kcal`);
+      // Reset local state — parent will route to HOME
+      setWorkoutState('idle');
+      setElapsed(0); setDistance(0); setPoints([]);
+      lastPointRef.current = null;
+    } catch (err) {
+      console.error('Workout save failed:', err);
+      toast.error('Failed to save workout. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => { return () => { stopGPS(); stopTimer(); }; }, [stopGPS, stopTimer]);
