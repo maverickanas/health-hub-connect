@@ -288,22 +288,22 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         )}
       </AnimatePresence>
 
-      {/* Floating Glassmorphic Control Panel — sits above bottom nav with safe-area */}
+      {/* Floating Glassmorphic Control Panel — lighter overlay, map visible underneath */}
       <div
         className="absolute left-0 right-0 z-[1000] rounded-t-[40px] border-t border-white/10 px-6 pt-5 space-y-4"
         style={{
           bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))',
           paddingBottom: '1.5rem',
-          background: 'rgba(10, 10, 10, 0.4)',
-          backdropFilter: 'blur(28px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
-          boxShadow: '0 -10px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+          background: 'rgba(10, 10, 10, 0.5)',
+          backdropFilter: 'blur(20px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(150%)',
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}
       >
         {/* Drag handle */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/15" />
 
-        {/* Activity Mode Toggle */}
+        {/* Activity Mode Toggle — locked while workout running */}
         <div className="relative flex items-center bg-black/40 border border-white/5 rounded-full p-1 backdrop-blur-xl">
           <motion.div
             layout
@@ -317,14 +317,15 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           {(['walking', 'cycling'] as ActivityMode[]).map((mode) => {
             const Icon = mode === 'walking' ? Footprints : Bike;
             const active = activityMode === mode;
+            const locked = workoutState !== 'idle';
             return (
               <button
                 key={mode}
-                onClick={() => !isTracking && setActivityMode(mode)}
-                disabled={isTracking}
+                onClick={() => !locked && setActivityMode(mode)}
+                disabled={locked}
                 className={`relative z-10 flex-1 py-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] transition-colors duration-300 ${
                   active ? 'text-primary' : 'text-muted-foreground'
-                } ${isTracking ? 'opacity-60 cursor-not-allowed' : ''}`}
+                } ${locked ? 'opacity-60 cursor-not-allowed' : ''}`}
                 style={active ? { textShadow: '0 0 12px rgba(204,255,0,0.7)' } : {}}
               >
                 <Icon size={14} />
@@ -334,74 +335,83 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           })}
         </div>
 
-        {/* Workout Complete Card */}
-        <AnimatePresence>
-          {workoutDone && !isTracking && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="rounded-2xl p-4 space-y-3 bg-black/40 border border-primary/20 backdrop-blur-xl"
+        {/* Dynamic Action Buttons — state machine */}
+        <AnimatePresence mode="wait">
+          {workoutState === 'idle' && (
+            <motion.button
+              key="start"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={handleStart}
+              className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3"
+              style={{ boxShadow: '0 0 40px rgba(204,255,0,0.35), 0 8px 24px rgba(204,255,0,0.15)' }}
             >
-              <div className="flex items-center gap-3">
-                <Trophy size={20} className="text-primary shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs font-black text-foreground uppercase">Workout Complete!</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleReset}
-                  className="flex-1 py-3 rounded-xl border border-white/10 text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                >
-                  Discard
-                </button>
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={handleSaveWorkout}
-                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(204,255,0,0.3)]"
-                >
-                  Save & Sync
-                </motion.button>
-              </div>
+              <Play size={20} fill="currentColor" /> Start Workout
+            </motion.button>
+          )}
+
+          {workoutState === 'active' && (
+            <motion.div
+              key="active"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex gap-3"
+            >
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handlePause}
+                className="flex-1 py-5 rounded-2xl bg-white/10 border border-white/15 text-foreground font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
+              >
+                <Pause size={18} fill="currentColor" /> Pause
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleStop}
+                className="flex-1 py-5 rounded-2xl bg-destructive/15 border border-destructive/40 text-destructive font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
+              >
+                <Square size={18} fill="currentColor" /> Stop
+              </motion.button>
+            </motion.div>
+          )}
+
+          {workoutState === 'paused' && (
+            <motion.div
+              key="paused"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="space-y-3"
+            >
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleResume}
+                disabled={isSaving}
+                className="w-full py-4 rounded-2xl border border-primary/40 bg-primary/10 text-primary font-black text-xs uppercase tracking-[0.25em] flex items-center justify-center gap-2 backdrop-blur-xl disabled:opacity-50"
+              >
+                <Play size={18} fill="currentColor" /> Resume
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleFinishAndSave}
+                disabled={isSaving}
+                className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-wait"
+                style={{ boxShadow: '0 0 40px rgba(204,255,0,0.4), 0 8px 24px rgba(204,255,0,0.2)' }}
+              >
+                {isSaving ? (
+                  <><Loader2 size={20} className="animate-spin" /> Saving…</>
+                ) : (
+                  <><Save size={20} /> Finish & Save Protocol</>
+                )}
+              </motion.button>
+              <p className="text-[9px] font-bold text-muted-foreground text-center uppercase tracking-wider">
+                {distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Primary Action */}
-        {!isTracking && !workoutDone && (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={handleStart}
-            className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3"
-            style={{ boxShadow: '0 0 40px rgba(204,255,0,0.35), 0 8px 24px rgba(204,255,0,0.15)' }}
-          >
-            <Play size={20} fill="currentColor" /> Start Workout
-          </motion.button>
-        )}
-
-        {isTracking && (
-          <div className="flex gap-3">
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={isPaused ? handleResume : handlePause}
-              className="flex-1 py-5 rounded-2xl border border-primary/30 bg-primary/5 text-primary font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
-            >
-              {isPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
-              {isPaused ? 'Resume' : 'Pause'}
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={handleStop}
-              className="flex-1 py-5 rounded-2xl bg-destructive/15 border border-destructive/30 text-destructive font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
-            >
-              <Square size={18} fill="currentColor" /> Stop
-            </motion.button>
-          </div>
-        )}
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-3 gap-3">
