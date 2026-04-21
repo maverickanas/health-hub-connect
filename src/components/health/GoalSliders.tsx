@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Footprints, Flame, Droplets } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
+import { Footprints, Flame, Droplets, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface GoalSlidersProps {
   stepGoal: number;
@@ -11,72 +11,118 @@ interface GoalSlidersProps {
 }
 
 const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrationGoal, onUpdate }) => {
-  const goals = [
+  const [stepInput, setStepInput] = useState(String(stepGoal));
+  const [calorieInput, setCalorieInput] = useState(String(calorieGoal));
+  const [hydrationInput, setHydrationInput] = useState(String(hydrationGoal));
+  const [saving, setSaving] = useState(false);
+
+  // Sync local state if parent goals change externally (AI Accept Plan, realtime sync)
+  useEffect(() => { setStepInput(String(stepGoal)); }, [stepGoal]);
+  useEffect(() => { setCalorieInput(String(calorieGoal)); }, [calorieGoal]);
+  useEffect(() => { setHydrationInput(String(hydrationGoal)); }, [hydrationGoal]);
+
+  const fields = [
     {
-      icon: Footprints,
-      label: 'Step Target',
-      value: stepGoal,
-      min: 1000,
-      max: 30000,
-      step: 500,
-      unit: 'steps',
-      color: 'text-amber-400',
-      onChange: (v: number) => onUpdate({ stepGoal: v }),
+      icon: Footprints, label: 'Step Target', unit: 'steps',
+      value: stepInput, setValue: setStepInput,
+      color: 'text-amber-400', step: '1', min: 1000, max: 50000,
     },
     {
-      icon: Flame,
-      label: 'Calorie Target',
-      value: calorieGoal,
-      min: 500,
-      max: 5000,
-      step: 100,
-      unit: 'kcal',
-      color: 'text-primary',
-      onChange: (v: number) => onUpdate({ calorieGoal: v }),
+      icon: Flame, label: 'Calorie Target', unit: 'kcal',
+      value: calorieInput, setValue: setCalorieInput,
+      color: 'text-primary', step: '1', min: 500, max: 8000,
     },
     {
-      icon: Droplets,
-      label: 'Water Target',
-      value: hydrationGoal,
-      min: 0.5,
-      max: 6,
-      step: 0.25,
-      unit: 'L',
-      color: 'text-cyan-400',
-      onChange: (v: number) => onUpdate({ hydrationGoal: v }),
+      icon: Droplets, label: 'Water Target', unit: 'L',
+      value: hydrationInput, setValue: setHydrationInput,
+      color: 'text-cyan-400', step: '0.1', min: 0.5, max: 10,
     },
   ];
+
+  const dirty =
+    Number(stepInput) !== stepGoal ||
+    Number(calorieInput) !== calorieGoal ||
+    Number(hydrationInput) !== hydrationGoal;
+
+  const handleSave = async () => {
+    const s = Number(stepInput);
+    const c = Number(calorieInput);
+    const h = Number(hydrationInput);
+
+    if (!Number.isFinite(s) || s < 1000 || s > 50000) {
+      toast.error('Step target must be between 1,000 and 50,000');
+      return;
+    }
+    if (!Number.isFinite(c) || c < 500 || c > 8000) {
+      toast.error('Calorie target must be between 500 and 8,000');
+      return;
+    }
+    if (!Number.isFinite(h) || h < 0.5 || h > 10) {
+      toast.error('Water target must be between 0.5 and 10 L');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onUpdate({ stepGoal: s, calorieGoal: c, hydrationGoal: Number(h.toFixed(2)) });
+      toast.success('Targets saved & synced');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-sm space-y-4">
       <p className="text-[9px] font-extrabold text-primary/60 uppercase tracking-[0.4em] text-center">Adjust Protocol</p>
-      {goals.map((g, i) => (
+
+      {fields.map((f, i) => (
         <motion.div
-          key={g.label}
+          key={f.label}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 * i }}
-          className="glass-panel p-4 rounded-2xl space-y-3"
+          transition={{ delay: 0.08 * i }}
+          className="glass-panel p-4 rounded-2xl"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <g.icon size={14} className={g.color} />
-              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em]">{g.label}</span>
-            </div>
-            <span className="text-sm font-black text-foreground">
-              {typeof g.value === 'number' && g.value % 1 !== 0 ? g.value.toFixed(1) : g.value.toLocaleString()} {g.unit}
-            </span>
+          <div className="flex items-center gap-2 mb-3">
+            <f.icon size={14} className={f.color} />
+            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em]">{f.label}</span>
           </div>
-          <Slider
-            value={[g.value]}
-            min={g.min}
-            max={g.max}
-            step={g.step}
-            onValueChange={([v]) => g.onChange(v)}
-            className="w-full"
-          />
+          <div className="flex items-end justify-end gap-2 border-b border-white/20 pb-2 transition-colors focus-within:border-primary">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={f.value}
+              onChange={(e) => f.setValue(e.target.value)}
+              step={f.step}
+              min={f.min}
+              max={f.max}
+              className="goal-input flex-1 bg-transparent text-right text-2xl font-black text-foreground outline-none appearance-none w-full min-w-0"
+            />
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider pb-1">{f.unit}</span>
+          </div>
         </motion.div>
       ))}
+
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={handleSave}
+        disabled={!dirty || saving}
+        className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+        style={dirty && !saving ? { boxShadow: '0 0 30px rgba(204,255,0,0.35), 0 6px 20px rgba(204,255,0,0.15)' } : {}}
+      >
+        <Save size={14} /> {saving ? 'Saving…' : 'Save Targets'}
+      </motion.button>
+
+      <style>{`
+        .goal-input::-webkit-outer-spin-button,
+        .goal-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .goal-input[type=number] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
     </div>
   );
 };
