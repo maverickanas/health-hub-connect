@@ -112,6 +112,7 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
               inputMode="decimal"
               value={f.value}
               onChange={(e) => f.setValue(e.target.value)}
+              onBlur={(e) => handleBlur(f.key, e.target.value)}
               disabled={saving}
               readOnly={saving}
               step={f.step}
@@ -127,7 +128,7 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
 
       <motion.button
         whileTap={{ scale: 0.97 }}
-        onClick={handleSave}
+        onClick={() => handleSave()}
         disabled={!dirty || saving}
         className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
         style={dirty && !saving ? { boxShadow: '0 0 30px rgba(204,255,0,0.35), 0 6px 20px rgba(204,255,0,0.15)' } : {}}
