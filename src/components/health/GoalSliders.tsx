@@ -65,15 +65,26 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
       return false;
     }
 
-    // Skip if nothing changed vs. parent goals
-    if (s === stepGoal && c === calorieGoal && Number(h.toFixed(2)) === Number(hydrationGoal.toFixed(2))) {
-      return true;
-    }
+    const hRounded = Number(h.toFixed(2));
+
+    // Detect which fields actually changed vs parent
+    const changed: string[] = [];
+    if (s !== stepGoal) changed.push(`Steps → ${s.toLocaleString()}`);
+    if (c !== calorieGoal) changed.push(`Calories → ${c.toLocaleString()} kcal`);
+    if (hRounded !== Number(hydrationGoal.toFixed(2))) changed.push(`Water → ${hRounded} L`);
+
+    if (changed.length === 0) return true;
 
     setSaving(true);
     try {
-      await onUpdate({ stepGoal: s, calorieGoal: c, hydrationGoal: Number(h.toFixed(2)) });
-      toast.success('Targets saved & synced');
+      await onUpdate({ stepGoal: s, calorieGoal: c, hydrationGoal: hRounded });
+      const isBlur = !!overrides;
+      if (isBlur) {
+        // Specific field-level toast on auto-save
+        toast.success(changed.join(' · '), { description: 'Auto-saved' });
+      } else {
+        toast.success(`Saved ${changed.length} target${changed.length > 1 ? 's' : ''} & synced`);
+      }
       return true;
     } finally {
       setSaving(false);

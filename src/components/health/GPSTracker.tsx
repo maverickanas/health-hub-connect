@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, Clock, Navigation, Zap, Trophy, AlertTriangle, Footprints, Bike, RotateCw } from 'lucide-react';
+import { Play, Pause, Square, Clock, Navigation, Zap, AlertTriangle, Footprints, Bike, RotateCw, Save, Loader2 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -52,20 +52,23 @@ const MapFollower: React.FC<{ position: [number, number] | null; shouldFly?: boo
   return null;
 };
 
+type WorkoutState = 'idle' | 'active' | 'paused';
+
 const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
-  const [isTracking, setIsTracking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [workoutState, setWorkoutState] = useState<WorkoutState>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [distance, setDistance] = useState(0);
   const [points, setPoints] = useState<GeoPoint[]>([]);
   const [currentPosition, setCurrentPosition] = useState<GeoPoint | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const [workoutDone, setWorkoutDone] = useState(false);
   const [activityMode, setActivityMode] = useState<ActivityMode>('walking');
+  const [isSaving, setIsSaving] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPointRef = useRef<GeoPoint | null>(null);
+  const isPausedRef = useRef(false);
+  isPausedRef.current = workoutState === 'paused';
 
   // Pace = min/km (walking), Speed = km/h (cycling)
   const pace = elapsed > 0 && distance > 0.01 ? (elapsed / 60) / distance : 0;
@@ -99,10 +102,9 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       (pos) => {
         const point: GeoPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
         setCurrentPosition(point);
-        if (!isPaused) {
+        if (!isPausedRef.current) {
           if (lastPointRef.current) {
             const d = haversineDistance(lastPointRef.current, point);
-            // Cycling allows larger jumps between points
             const maxJump = activityMode === 'cycling' ? 1.5 : 0.5;
             if (d > 0.003 && d < maxJump) {
               setDistance(prev => prev + d);
@@ -121,7 +123,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       },
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
     );
-  }, [isPaused, activityMode]);
+  }, [activityMode]);
 
   const stopGPS = useCallback(() => {
     if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
@@ -136,34 +138,46 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   }, []);
 
   const handleStart = () => {
-    setIsTracking(true); setIsPaused(false); setWorkoutDone(false);
+    setWorkoutState('active');
     setElapsed(0); setDistance(0); setPoints([]); lastPointRef.current = null;
     startGPS(); startTimer();
   };
 
-  const handlePause = () => { setIsPaused(true); stopTimer(); };
-  const handleResume = () => { setIsPaused(false); lastPointRef.current = null; startTimer(); };
+  const handlePause = () => { setWorkoutState('paused'); stopTimer(); };
+  const handleResume = () => { setWorkoutState('active'); lastPointRef.current = null; startTimer(); };
 
   const handleStop = () => {
-    stopGPS(); stopTimer(); setIsTracking(false); setIsPaused(false);
-    if (distance > 0.01 || elapsed > 10) {
-      setWorkoutDone(true);
-      toast.success(`Workout complete! ${distance.toFixed(2)} km in ${formatTime(elapsed)}`);
-    }
+    // Stop = abandon without saving
+    stopGPS(); stopTimer();
+    setWorkoutState('idle');
+    setElapsed(0); setDistance(0); setPoints([]);
+    lastPointRef.current = null;
+    toast.info('Workout discarded');
   };
 
-  const handleSaveWorkout = () => {
-    if (onWorkoutSave) {
-      onWorkoutSave(distance, caloriesBurned, elapsed);
-      toast.success('Workout saved & synced to dashboard!');
+  const handleFinishAndSave = async () => {
+    if (isSaving) return;
+    if (distance < 0.01 && elapsed < 10) {
+      toast.error('Workout too short to save');
+      return;
     }
-    setWorkoutDone(false); setElapsed(0); setDistance(0); setPoints([]);
-    lastPointRef.current = null; setCurrentPosition(null);
-  };
-
-  const handleReset = () => {
-    setWorkoutDone(false); setElapsed(0); setDistance(0); setPoints([]);
-    lastPointRef.current = null; setCurrentPosition(null);
+    setIsSaving(true);
+    try {
+      stopGPS(); stopTimer();
+      if (onWorkoutSave) {
+        await onWorkoutSave(distance, caloriesBurned, elapsed);
+      }
+      toast.success(`Saved! ${distance.toFixed(2)} km · ${caloriesBurned} kcal`);
+      // Reset local state — parent will route to HOME
+      setWorkoutState('idle');
+      setElapsed(0); setDistance(0); setPoints([]);
+      lastPointRef.current = null;
+    } catch (err) {
+      console.error('Workout save failed:', err);
+      toast.error('Failed to save workout. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => { return () => { stopGPS(); stopTimer(); }; }, [stopGPS, stopTimer]);
@@ -191,11 +205,11 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const handleRetryGPS = useCallback(() => {
     toast.info('Retrying GPS…');
     checkGeolocation();
-    if (isTracking) {
+    if (workoutState !== 'idle') {
       stopGPS();
       startGPS();
     }
-  }, [checkGeolocation, isTracking, startGPS, stopGPS]);
+  }, [checkGeolocation, workoutState, startGPS, stopGPS]);
 
   useEffect(() => {
     checkGeolocation();
@@ -274,22 +288,22 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         )}
       </AnimatePresence>
 
-      {/* Floating Glassmorphic Control Panel — sits above bottom nav with safe-area */}
+      {/* Floating Glassmorphic Control Panel — lighter overlay, map visible underneath */}
       <div
         className="absolute left-0 right-0 z-[1000] rounded-t-[40px] border-t border-white/10 px-6 pt-5 space-y-4"
         style={{
           bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))',
           paddingBottom: '1.5rem',
-          background: 'rgba(10, 10, 10, 0.4)',
-          backdropFilter: 'blur(28px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
-          boxShadow: '0 -10px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+          background: 'rgba(10, 10, 10, 0.5)',
+          backdropFilter: 'blur(20px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(150%)',
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}
       >
         {/* Drag handle */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/15" />
 
-        {/* Activity Mode Toggle */}
+        {/* Activity Mode Toggle — locked while workout running */}
         <div className="relative flex items-center bg-black/40 border border-white/5 rounded-full p-1 backdrop-blur-xl">
           <motion.div
             layout
@@ -303,14 +317,15 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           {(['walking', 'cycling'] as ActivityMode[]).map((mode) => {
             const Icon = mode === 'walking' ? Footprints : Bike;
             const active = activityMode === mode;
+            const locked = workoutState !== 'idle';
             return (
               <button
                 key={mode}
-                onClick={() => !isTracking && setActivityMode(mode)}
-                disabled={isTracking}
+                onClick={() => !locked && setActivityMode(mode)}
+                disabled={locked}
                 className={`relative z-10 flex-1 py-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] transition-colors duration-300 ${
                   active ? 'text-primary' : 'text-muted-foreground'
-                } ${isTracking ? 'opacity-60 cursor-not-allowed' : ''}`}
+                } ${locked ? 'opacity-60 cursor-not-allowed' : ''}`}
                 style={active ? { textShadow: '0 0 12px rgba(204,255,0,0.7)' } : {}}
               >
                 <Icon size={14} />
@@ -320,74 +335,83 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           })}
         </div>
 
-        {/* Workout Complete Card */}
-        <AnimatePresence>
-          {workoutDone && !isTracking && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="rounded-2xl p-4 space-y-3 bg-black/40 border border-primary/20 backdrop-blur-xl"
+        {/* Dynamic Action Buttons — state machine */}
+        <AnimatePresence mode="wait">
+          {workoutState === 'idle' && (
+            <motion.button
+              key="start"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={handleStart}
+              className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3"
+              style={{ boxShadow: '0 0 40px rgba(204,255,0,0.35), 0 8px 24px rgba(204,255,0,0.15)' }}
             >
-              <div className="flex items-center gap-3">
-                <Trophy size={20} className="text-primary shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs font-black text-foreground uppercase">Workout Complete!</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleReset}
-                  className="flex-1 py-3 rounded-xl border border-white/10 text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                >
-                  Discard
-                </button>
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={handleSaveWorkout}
-                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(204,255,0,0.3)]"
-                >
-                  Save & Sync
-                </motion.button>
-              </div>
+              <Play size={20} fill="currentColor" /> Start Workout
+            </motion.button>
+          )}
+
+          {workoutState === 'active' && (
+            <motion.div
+              key="active"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex gap-3"
+            >
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handlePause}
+                className="flex-1 py-5 rounded-2xl bg-white/10 border border-white/15 text-foreground font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
+              >
+                <Pause size={18} fill="currentColor" /> Pause
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleStop}
+                className="flex-1 py-5 rounded-2xl bg-destructive/15 border border-destructive/40 text-destructive font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
+              >
+                <Square size={18} fill="currentColor" /> Stop
+              </motion.button>
+            </motion.div>
+          )}
+
+          {workoutState === 'paused' && (
+            <motion.div
+              key="paused"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="space-y-3"
+            >
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleResume}
+                disabled={isSaving}
+                className="w-full py-4 rounded-2xl border border-primary/40 bg-primary/10 text-primary font-black text-xs uppercase tracking-[0.25em] flex items-center justify-center gap-2 backdrop-blur-xl disabled:opacity-50"
+              >
+                <Play size={18} fill="currentColor" /> Resume
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleFinishAndSave}
+                disabled={isSaving}
+                className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-wait"
+                style={{ boxShadow: '0 0 40px rgba(204,255,0,0.4), 0 8px 24px rgba(204,255,0,0.2)' }}
+              >
+                {isSaving ? (
+                  <><Loader2 size={20} className="animate-spin" /> Saving…</>
+                ) : (
+                  <><Save size={20} /> Finish & Save Protocol</>
+                )}
+              </motion.button>
+              <p className="text-[9px] font-bold text-muted-foreground text-center uppercase tracking-wider">
+                {distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Primary Action */}
-        {!isTracking && !workoutDone && (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={handleStart}
-            className="w-full py-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3"
-            style={{ boxShadow: '0 0 40px rgba(204,255,0,0.35), 0 8px 24px rgba(204,255,0,0.15)' }}
-          >
-            <Play size={20} fill="currentColor" /> Start Workout
-          </motion.button>
-        )}
-
-        {isTracking && (
-          <div className="flex gap-3">
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={isPaused ? handleResume : handlePause}
-              className="flex-1 py-5 rounded-2xl border border-primary/30 bg-primary/5 text-primary font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
-            >
-              {isPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
-              {isPaused ? 'Resume' : 'Pause'}
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={handleStop}
-              className="flex-1 py-5 rounded-2xl bg-destructive/15 border border-destructive/30 text-destructive font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
-            >
-              <Square size={18} fill="currentColor" /> Stop
-            </motion.button>
-          </div>
-        )}
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-3 gap-3">
@@ -401,9 +425,9 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: m.delay }}
-              className="p-4 rounded-2xl text-center bg-black/30 border border-white/5 backdrop-blur-xl"
+              className="px-2 py-3 rounded-2xl text-center bg-black/40 border border-white/10 backdrop-blur-xl"
             >
-              <m.icon size={16} className="text-muted-foreground mx-auto mb-2" />
+              <m.icon size={14} className="text-muted-foreground mx-auto mb-1.5" />
               <AnimatePresence mode="wait">
                 <motion.p
                   key={m.value}
@@ -411,7 +435,8 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="text-xl font-black text-foreground"
+                  className="text-2xl font-black text-foreground tabular-nums leading-tight"
+                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
                 >
                   {m.value}
                 </motion.p>
