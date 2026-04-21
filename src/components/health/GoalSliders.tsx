@@ -81,22 +81,30 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.08 * i }}
-          className="glass-panel p-4 rounded-2xl"
+          className="glass-panel p-4 rounded-2xl transition-all"
+          style={saving ? { boxShadow: '0 0 24px rgba(204,255,0,0.25), inset 0 0 0 1px rgba(204,255,0,0.4)' } : {}}
         >
           <div className="flex items-center gap-2 mb-3">
             <f.icon size={14} className={f.color} />
             <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em]">{f.label}</span>
           </div>
-          <div className="flex items-end justify-end gap-2 border-b border-white/20 pb-2 transition-colors focus-within:border-primary">
+          <div
+            className={`flex items-end justify-end gap-2 border-b pb-2 transition-colors ${
+              saving ? 'border-primary' : 'border-white/20 focus-within:border-primary'
+            }`}
+          >
             <input
               type="number"
               inputMode="decimal"
               value={f.value}
               onChange={(e) => f.setValue(e.target.value)}
+              disabled={saving}
+              readOnly={saving}
               step={f.step}
               min={f.min}
               max={f.max}
-              className="goal-input flex-1 bg-transparent text-right text-2xl font-black text-foreground outline-none appearance-none w-full min-w-0"
+              className="goal-input flex-1 bg-transparent text-right text-2xl font-black text-foreground outline-none appearance-none w-full min-w-0 disabled:cursor-wait transition-opacity"
+              style={saving ? { textShadow: '0 0 16px rgba(204,255,0,0.6)', opacity: 0.85 } : {}}
             />
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider pb-1">{f.unit}</span>
           </div>
