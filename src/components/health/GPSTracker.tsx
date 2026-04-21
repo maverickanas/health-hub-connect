@@ -205,11 +205,11 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const handleRetryGPS = useCallback(() => {
     toast.info('Retrying GPS…');
     checkGeolocation();
-    if (isTracking) {
+    if (workoutState !== 'idle') {
       stopGPS();
       startGPS();
     }
-  }, [checkGeolocation, isTracking, startGPS, stopGPS]);
+  }, [checkGeolocation, workoutState, startGPS, stopGPS]);
 
   useEffect(() => {
     checkGeolocation();
