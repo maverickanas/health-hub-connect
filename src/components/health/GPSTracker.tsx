@@ -425,9 +425,9 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: m.delay }}
-              className="p-4 rounded-2xl text-center bg-black/30 border border-white/5 backdrop-blur-xl"
+              className="px-2 py-3 rounded-2xl text-center bg-black/40 border border-white/10 backdrop-blur-xl"
             >
-              <m.icon size={16} className="text-muted-foreground mx-auto mb-2" />
+              <m.icon size={14} className="text-muted-foreground mx-auto mb-1.5" />
               <AnimatePresence mode="wait">
                 <motion.p
                   key={m.value}
@@ -435,7 +435,8 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="text-xl font-black text-foreground"
+                  className="text-2xl font-black text-foreground tabular-nums leading-tight"
+                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
                 >
                   {m.value}
                 </motion.p>
