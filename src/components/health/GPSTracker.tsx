@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, Clock, Navigation, Zap, Trophy, AlertTriangle, Footprints, Bike } from 'lucide-react';
+import { Play, Pause, Square, Clock, Navigation, Zap, Trophy, AlertTriangle, Footprints, Bike, RotateCw } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
