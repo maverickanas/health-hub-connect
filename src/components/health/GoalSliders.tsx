@@ -44,31 +44,42 @@ const GoalSliders: React.FC<GoalSlidersProps> = ({ stepGoal, calorieGoal, hydrat
     Number(calorieInput) !== calorieGoal ||
     Number(hydrationInput) !== hydrationGoal;
 
-  const handleSave = async () => {
-    const s = Number(stepInput);
-    const c = Number(calorieInput);
-    const h = Number(hydrationInput);
+  const handleSave = async (overrides?: { step?: string; calorie?: string; hydration?: string }) => {
+    const s = Number(overrides?.step ?? stepInput);
+    const c = Number(overrides?.calorie ?? calorieInput);
+    const h = Number(overrides?.hydration ?? hydrationInput);
 
     if (!Number.isFinite(s) || s < 1000 || s > 50000) {
       toast.error('Step target must be between 1,000 and 50,000');
-      return;
+      return false;
     }
     if (!Number.isFinite(c) || c < 500 || c > 8000) {
       toast.error('Calorie target must be between 500 and 8,000');
-      return;
+      return false;
     }
     if (!Number.isFinite(h) || h < 0.5 || h > 10) {
       toast.error('Water target must be between 0.5 and 10 L');
-      return;
+      return false;
+    }
+
+    // Skip if nothing changed vs. parent goals
+    if (s === stepGoal && c === calorieGoal && Number(h.toFixed(2)) === Number(hydrationGoal.toFixed(2))) {
+      return true;
     }
 
     setSaving(true);
     try {
       await onUpdate({ stepGoal: s, calorieGoal: c, hydrationGoal: Number(h.toFixed(2)) });
       toast.success('Targets saved & synced');
+      return true;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBlur = (key: 'step' | 'calorie' | 'hydration', raw: string) => {
+    if (saving) return;
+    handleSave({ [key]: raw });
   };
 
   return (
