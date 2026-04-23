@@ -24,7 +24,7 @@ export function useAuth() {
   }, []);
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -33,12 +33,15 @@ export function useAuth() {
       },
     });
     if (error) throw error;
-    // Returns whether the user is immediately logged in (auto-confirm) or needs to verify email
-    return { needsEmailConfirmation: !!data.user && !data.session };
   };
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signInAsGuest = async () => {
+    const { error } = await supabase.auth.signInAnonymously();
     if (error) throw error;
   };
 
@@ -47,5 +50,5 @@ export function useAuth() {
     if (error) throw error;
   };
 
-  return { session, user, loading, signUp, signIn, signOut };
+  return { session, user, loading, signUp, signIn, signInAsGuest, signOut };
 }
