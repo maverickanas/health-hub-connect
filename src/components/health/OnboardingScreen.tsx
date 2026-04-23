@@ -317,8 +317,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
         contentType: 'image/jpeg', upsert: true,
       });
       if (error) throw error;
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      return data.publicUrl;
+      // Bucket is private — store the storage path; signed URLs are resolved on read.
+      return path;
     } catch (err: any) {
       toast.error('Avatar upload failed: ' + (err.message || 'unknown'));
       return null;
