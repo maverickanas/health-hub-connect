@@ -24,9 +24,8 @@ const EMPTY_ACTIVITY: ActivityData = {
 };
 
 const Index = () => {
-  const { user, loading, signIn, signUp, signOut } = useAuth();
+  const { user, loading, signIn, signUp, signInAsGuest, signOut } = useAuth();
   const { profile, loading: profileLoading } = useProfile(user);
-  const [isGuest, setIsGuest] = useLocalStorage('hh_guest', false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [isTracking, setIsTracking] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -149,24 +148,22 @@ const Index = () => {
   }, [user, dataLoaded, showOnboarding]);
 
   const handleSignIn = async (email: string, password: string) => {
-    await signIn(email, password); setIsGuest(false);
+    await signIn(email, password);
     toast.success('Logged in successfully!');
   };
 
   const handleSignUp = async (email: string, password: string, name: string) => {
-    const { needsEmailConfirmation } = await signUp(email, password, name);
-    if (needsEmailConfirmation) {
-      toast.info('Registration successful! Please check your email inbox to verify your account.');
-      return;
-    }
+    await signUp(email, password, name);
     toast.success('Account created! Let\'s set up your profile.');
-    setIsGuest(false);
   };
 
-  const handleGuestLogin = () => setIsGuest(true);
+  const handleGuestLogin = async () => {
+    await signInAsGuest();
+    toast.success('Guest protocol initialized.');
+  };
 
   const handleLogout = async () => {
-    if (isGuest) setIsGuest(false); else await signOut();
+    await signOut();
     sessionStorage.removeItem('hh_welcome_shown');
     sessionStorage.removeItem('hh_onboarding_done');
     setActivityData(EMPTY_ACTIVITY); setCurrentView(ViewState.HOME);
@@ -231,7 +228,8 @@ const Index = () => {
     toast.success('Target synchronized');
   };
 
-  const isAuthenticated = !!user || isGuest;
+  const isAuthenticated = !!user;
+  const isGuest = !!user?.is_anonymous;
   const userName = profile?.display_name || (isGuest ? 'Guest' : user?.email?.split('@')[0] || 'User');
   void profileLoading;
   const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
