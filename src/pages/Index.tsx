@@ -25,7 +25,7 @@ const EMPTY_ACTIVITY: ActivityData = {
 
 const Index = () => {
   const { user, loading, signIn, signUp, signOut } = useAuth();
-  const profile = useProfile(user);
+  const { profile, loading: profileLoading } = useProfile(user);
   const [isGuest, setIsGuest] = useLocalStorage('hh_guest', false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [isTracking, setIsTracking] = useState(false);
@@ -107,12 +107,14 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Check if new user needs onboarding
+  // Check if new user needs onboarding (profile missing biometrics → force wizard)
   useEffect(() => {
-    if (!user || !profile || !dataLoaded) return;
-    const isNewUser = profile.display_name === 'Elite' && !sessionStorage.getItem('hh_onboarding_done');
-    if (isNewUser) setShowOnboarding(true);
-  }, [user, profile, dataLoaded]);
+    if (!user || profileLoading || !dataLoaded) return;
+    const needsOnboarding = !profile || profile.height == null || profile.weight == null || profile.age == null;
+    if (needsOnboarding && !sessionStorage.getItem('hh_onboarding_done')) {
+      setShowOnboarding(true);
+    }
+  }, [user, profile, profileLoading, dataLoaded]);
 
   // Calculate streak
   useEffect(() => {
@@ -148,11 +150,16 @@ const Index = () => {
 
   const handleSignIn = async (email: string, password: string) => {
     await signIn(email, password); setIsGuest(false);
+    toast.success('Logged in successfully!');
   };
 
   const handleSignUp = async (email: string, password: string, name: string) => {
-    await signUp(email, password, name);
-    toast.success('Account created! You are now logged in.');
+    const { needsEmailConfirmation } = await signUp(email, password, name);
+    if (needsEmailConfirmation) {
+      toast.info('Registration successful! Please check your email inbox to verify your account.');
+      return;
+    }
+    toast.success('Account created! Let\'s set up your profile.');
     setIsGuest(false);
   };
 
@@ -226,6 +233,7 @@ const Index = () => {
 
   const isAuthenticated = !!user || isGuest;
   const userName = profile?.display_name || (isGuest ? 'Guest' : user?.email?.split('@')[0] || 'User');
+  void profileLoading;
   const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
 
   if (loading) {
