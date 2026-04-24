@@ -273,6 +273,7 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background text-foreground relative overflow-hidden">
+      {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
       <main className="flex-1 relative w-full overflow-hidden">
