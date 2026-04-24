@@ -27,7 +27,7 @@ async function fetchProfileWithRetry(userId: string, maxRetries = 5) {
       lastError = error;
       console.warn(`[useProfile] fetch attempt ${attempt + 1} errored:`, error);
     } else if (data) {
-      return { data, error: null as const };
+      return { data, error: null };
     }
 
     if (attempt < maxRetries - 1) {
