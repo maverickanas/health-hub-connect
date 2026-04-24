@@ -15,6 +15,7 @@ import ChatBot from '@/components/health/ChatBot';
 import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
+import PreparingAccountOverlay from '@/components/health/PreparingAccountOverlay';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
