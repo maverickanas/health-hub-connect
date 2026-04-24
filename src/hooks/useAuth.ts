@@ -61,7 +61,7 @@ export function useAuth() {
   }, []);
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -70,6 +70,11 @@ export function useAuth() {
       },
     });
     if (error) throw error;
+    if (!data.user) {
+      throw new Error('Registration failed: no user returned by the server.');
+    }
+    // If session is null, email confirmation is still required on the backend.
+    return { user: data.user, session: data.session, needsEmailConfirmation: !data.session };
   };
 
   const signIn = async (email: string, password: string) => {
