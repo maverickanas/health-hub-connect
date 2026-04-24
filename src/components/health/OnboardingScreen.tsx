@@ -387,6 +387,42 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
             transition={{ type: 'spring', stiffness: 180, damping: 22 }}
           />
         </div>
+
+        {/* Required biometrics indicator — shows which core fields are still missing */}
+        {(() => {
+          const items = [
+            { key: 'height', label: 'Height', filled: Number(formData.height) > 50, icon: <Ruler size={11} /> },
+            { key: 'weight', label: 'Weight', filled: Number(formData.weight) > 20, icon: <Weight size={11} /> },
+            { key: 'age',    label: 'Age',    filled: Number(formData.age) > 0,    icon: <Calendar size={11} /> },
+          ];
+          const filledCount = items.filter(i => i.filled).length;
+          return (
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {items.map(it => (
+                  <motion.div
+                    key={it.key}
+                    layout
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-[0.2em] transition-all ${
+                      it.filled
+                        ? 'bg-[#CCFF00]/10 border-[#CCFF00]/40 text-[#CCFF00] shadow-[0_0_12px_rgba(204,255,0,0.2)]'
+                        : 'bg-white/[0.02] border-white/10 text-muted-foreground/60'
+                    }`}
+                  >
+                    {it.filled ? <Check size={10} strokeWidth={3} /> : it.icon}
+                    <span>{it.label}</span>
+                  </motion.div>
+                ))}
+              </div>
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground/70 shrink-0">
+                <span className={filledCount === items.length ? 'text-[#CCFF00]' : 'text-foreground/80'}>
+                  {filledCount}
+                </span>
+                <span>/{items.length} Bio</span>
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Step content */}
