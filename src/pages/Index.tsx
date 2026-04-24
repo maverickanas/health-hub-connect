@@ -166,7 +166,12 @@ const Index = () => {
   };
 
   const handleSignUp = async (email: string, password: string, name: string) => {
-    await signUp(email, password, name);
+    const result = await signUp(email, password, name);
+    if (result?.needsEmailConfirmation) {
+      // Surface the real backend state instead of a fake success.
+      toast.info('Check your inbox to verify your email before logging in.');
+      throw new Error('Email verification required. Please check your inbox.');
+    }
     toast.success('Account created! Let\'s set up your profile.');
   };
 
