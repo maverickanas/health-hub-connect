@@ -15,6 +15,7 @@ import ChatBot from '@/components/health/ChatBot';
 import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
+import PreparingAccountOverlay from '@/components/health/PreparingAccountOverlay';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -258,6 +259,9 @@ const Index = () => {
     return <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />;
   }
 
+  // Non-blocking overlay while profile/activity bootstrap finishes after signup/login.
+  const isPreparing = profileLoading || !dataLoaded;
+
   if (showOnboarding && user) {
     return <OnboardingScreen userId={user.id} userName={userName} onComplete={handleOnboardingComplete} />;
   }
@@ -269,6 +273,7 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background text-foreground relative overflow-hidden">
+      {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
       <main className="flex-1 relative w-full overflow-hidden">

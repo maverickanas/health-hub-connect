@@ -10,35 +10,25 @@ export function useAuth() {
   const bootstrappingRef = useRef<Set<string>>(new Set());
 
   // Ensure a minimal profiles row exists for the signed-in user.
-  // Idempotent + single-flight: safe to call multiple times.
+  // Uses upsert to eliminate races with the handle_new_user trigger.
   const ensureProfileRow = async (u: User) => {
     if (bootstrappingRef.current.has(u.id)) return;
     bootstrappingRef.current.add(u.id);
     try {
-      const { data: existing, error: selErr } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', u.id)
-        .maybeSingle();
-
-      if (selErr) {
-        console.error('[useAuth] ensureProfileRow select failed:', selErr);
-        return;
-      }
-      if (existing) return;
-
       const displayName =
         (u.user_metadata?.display_name as string | undefined) ||
         (u.is_anonymous ? 'Guest' : u.email?.split('@')[0]) ||
         'Elite';
 
-      const { error: insErr } = await supabase
+      const { error } = await supabase
         .from('profiles')
-        .insert({ user_id: u.id, display_name: displayName });
+        .upsert(
+          { user_id: u.id, display_name: displayName },
+          { onConflict: 'user_id', ignoreDuplicates: true }
+        );
 
-      // 23505 = unique violation (handle_new_user trigger may have already inserted). Safe to ignore.
-      if (insErr && (insErr as any).code !== '23505') {
-        console.error('[useAuth] ensureProfileRow insert failed:', insErr);
+      if (error) {
+        console.error('[useAuth] ensureProfileRow upsert failed:', error);
       }
     } catch (err) {
       console.error('[useAuth] ensureProfileRow unexpected error:', err);
