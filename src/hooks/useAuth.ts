@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 
@@ -6,18 +6,65 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Single-flight lock — prevents concurrent profile-bootstrap runs for the same user.
+  const bootstrappingRef = useRef<Set<string>>(new Set());
+
+  // Ensure a minimal profiles row exists for the signed-in user.
+  // Idempotent + single-flight: safe to call multiple times.
+  const ensureProfileRow = async (u: User) => {
+    if (bootstrappingRef.current.has(u.id)) return;
+    bootstrappingRef.current.add(u.id);
+    try {
+      const { data: existing, error: selErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', u.id)
+        .maybeSingle();
+
+      if (selErr) {
+        console.error('[useAuth] ensureProfileRow select failed:', selErr);
+        return;
+      }
+      if (existing) return;
+
+      const displayName =
+        (u.user_metadata?.display_name as string | undefined) ||
+        (u.is_anonymous ? 'Guest' : u.email?.split('@')[0]) ||
+        'Elite';
+
+      const { error: insErr } = await supabase
+        .from('profiles')
+        .insert({ user_id: u.id, display_name: displayName });
+
+      // 23505 = unique violation (handle_new_user trigger may have already inserted). Safe to ignore.
+      if (insErr && (insErr as any).code !== '23505') {
+        console.error('[useAuth] ensureProfileRow insert failed:', insErr);
+      }
+    } catch (err) {
+      console.error('[useAuth] ensureProfileRow unexpected error:', err);
+    } finally {
+      bootstrappingRef.current.delete(u.id);
+    }
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      // Defer Supabase calls out of the auth callback to avoid deadlocks.
+      if (session?.user) {
+        setTimeout(() => { ensureProfileRow(session.user); }, 0);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        setTimeout(() => { ensureProfileRow(session.user); }, 0);
+      }
     });
 
     return () => subscription.unsubscribe();
