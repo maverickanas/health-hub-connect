@@ -259,6 +259,9 @@ const Index = () => {
     return <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />;
   }
 
+  // Non-blocking overlay while profile/activity bootstrap finishes after signup/login.
+  const isPreparing = profileLoading || !dataLoaded;
+
   if (showOnboarding && user) {
     return <OnboardingScreen userId={user.id} userName={userName} onComplete={handleOnboardingComplete} />;
   }
