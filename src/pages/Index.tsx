@@ -109,8 +109,20 @@ const Index = () => {
   // Check if new user needs onboarding (profile missing biometrics → force wizard)
   useEffect(() => {
     if (!user || profileLoading || !dataLoaded) return;
-    const needsOnboarding = !profile || profile.height == null || profile.weight == null || profile.age == null;
-    if (needsOnboarding && !sessionStorage.getItem('hh_onboarding_done')) {
+    try {
+      // profile is null for brand-new users (no row yet) — force onboarding.
+      const needsOnboarding =
+        !profile ||
+        profile.height == null ||
+        profile.weight == null ||
+        profile.age == null;
+      if (needsOnboarding && !sessionStorage.getItem('hh_onboarding_done')) {
+        console.info('[Routing] Profile incomplete → routing to onboarding wizard.');
+        setShowOnboarding(true);
+      }
+    } catch (err) {
+      console.error('[Routing] Onboarding gate failed:', err);
+      // Fail-safe: send to onboarding so user is never stuck.
       setShowOnboarding(true);
     }
   }, [user, profile, profileLoading, dataLoaded]);
