@@ -115,24 +115,31 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Smart routing gate: profile is the source of truth.
-  // - Returning user with complete biometrics (height/weight/age) → Dashboard
-  // - New user OR incomplete profile → Onboarding wizard
+  // Smart routing gate: the profile (preloaded by AuthProvider) is the source of truth.
+  // - profile === null  → row truly missing (new user) → Onboarding (a default row
+  //   will already be created by AuthProvider.ensureProfileRow).
+  // - any of height/weight/age not a finite positive number → Onboarding.
+  // - all three numeric biometrics present → Dashboard (returning user).
+  const needsOnboarding = useMemo(() => {
+    if (!profile) return true;
+    return !(
+      isFilledNumber(profile.height) &&
+      isFilledNumber(profile.weight) &&
+      isFilledNumber(profile.age)
+    );
+  }, [profile]);
+
   useEffect(() => {
     if (!user || profileLoading) return;
-    const needsOnboarding =
-      !profile ||
-      profile.height == null ||
-      profile.weight == null ||
-      profile.age == null;
     if (needsOnboarding) {
-      console.info('[Routing] Profile incomplete → onboarding wizard.');
+      console.info('[Routing] Profile incomplete → onboarding wizard.', { profile });
       setShowOnboarding(true);
     } else {
-      console.info('[Routing] Existing user with complete profile → dashboard.');
+      console.info('[Routing] Returning user with complete profile → dashboard.', { profile });
       setShowOnboarding(false);
     }
-  }, [user, profile, profileLoading]);
+  }, [user, profile, profileLoading, needsOnboarding]);
+
 
   // Calculate streak
   useEffect(() => {
