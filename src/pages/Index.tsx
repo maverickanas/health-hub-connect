@@ -244,9 +244,16 @@ const Index = () => {
     });
   }, []);
 
-  const handleOnboardingComplete = () => {
-    // Profile now has biometrics; the routing effect will pick it up on next refetch.
+  const handleOnboardingComplete = async () => {
+    // Refetch the profile so the routing gate sees the new biometrics immediately,
+    // then drop straight into Home (Dashboard).
+    try {
+      await refetchProfile();
+    } catch (err) {
+      console.error('[Routing] refetchProfile after onboarding failed:', err);
+    }
     setShowOnboarding(false);
+    setCurrentView(ViewState.HOME);
     setShowWelcome(true);
     sessionStorage.setItem('hh_welcome_shown', 'true');
   };
