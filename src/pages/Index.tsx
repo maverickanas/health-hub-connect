@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ViewState, ActivityData } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
 import { useNotifications } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import useLocalStorage from '@/hooks/useLocalStorage';
@@ -16,6 +15,7 @@ import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
 import PreparingAccountOverlay from '@/components/health/PreparingAccountOverlay';
+import RoutingDebugBanner from '@/components/health/RoutingDebugBanner';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,10 +24,18 @@ const EMPTY_ACTIVITY: ActivityData = {
   stepGoal: 10000, calorieGoal: 2000, distanceGoal: 5.0, hydrationGoal: 3.0, history: [],
 };
 
+// True when a value parses to a finite, positive number (the only meaningful
+// state for biometrics like height/weight/age).
+const isFilledNumber = (v: unknown): boolean => {
+  if (v === null || v === undefined || v === '') return false;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0;
+};
+
 const Index = () => {
-  const { user, loading, signIn, signUp, signInAsGuest, signOut } = useAuth();
-  const { profile, loading: profileLoading } = useProfile(user);
+  const { user, loading, profile, profileLoading, refetchProfile, signIn, signUp, signInAsGuest, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
+
   const [isTracking, setIsTracking] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -107,24 +115,31 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Smart routing gate: profile is the source of truth.
-  // - Returning user with complete biometrics (height/weight/age) → Dashboard
-  // - New user OR incomplete profile → Onboarding wizard
+  // Smart routing gate: the profile (preloaded by AuthProvider) is the source of truth.
+  // - profile === null  → row truly missing (new user) → Onboarding (a default row
+  //   will already be created by AuthProvider.ensureProfileRow).
+  // - any of height/weight/age not a finite positive number → Onboarding.
+  // - all three numeric biometrics present → Dashboard (returning user).
+  const needsOnboarding = useMemo(() => {
+    if (!profile) return true;
+    return !(
+      isFilledNumber(profile.height) &&
+      isFilledNumber(profile.weight) &&
+      isFilledNumber(profile.age)
+    );
+  }, [profile]);
+
   useEffect(() => {
     if (!user || profileLoading) return;
-    const needsOnboarding =
-      !profile ||
-      profile.height == null ||
-      profile.weight == null ||
-      profile.age == null;
     if (needsOnboarding) {
-      console.info('[Routing] Profile incomplete → onboarding wizard.');
+      console.info('[Routing] Profile incomplete → onboarding wizard.', { profile });
       setShowOnboarding(true);
     } else {
-      console.info('[Routing] Existing user with complete profile → dashboard.');
+      console.info('[Routing] Returning user with complete profile → dashboard.', { profile });
       setShowOnboarding(false);
     }
-  }, [user, profile, profileLoading]);
+  }, [user, profile, profileLoading, needsOnboarding]);
+
 
   // Calculate streak
   useEffect(() => {
@@ -229,9 +244,16 @@ const Index = () => {
     });
   }, []);
 
-  const handleOnboardingComplete = () => {
-    // Profile now has biometrics; the routing effect will pick it up on next refetch.
+  const handleOnboardingComplete = async () => {
+    // Refetch the profile so the routing gate sees the new biometrics immediately,
+    // then drop straight into Home (Dashboard).
+    try {
+      await refetchProfile();
+    } catch (err) {
+      console.error('[Routing] refetchProfile after onboarding failed:', err);
+    }
     setShowOnboarding(false);
+    setCurrentView(ViewState.HOME);
     setShowWelcome(true);
     sessionStorage.setItem('hh_welcome_shown', 'true');
   };
@@ -249,23 +271,56 @@ const Index = () => {
   void profileLoading;
   const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
 
+  // Compute which routing rule currently applies — drives the dev debug banner.
+  const routingRule: 'loading' | 'returning' | 'onboarding' | 'unauthenticated' =
+    !isAuthenticated ? 'unauthenticated'
+    : (loading || profileLoading) ? 'loading'
+    : needsOnboarding ? 'onboarding'
+    : 'returning';
+
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin text-primary" size={32} />
-      </div>
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-primary" size={32} />
+        </div>
+      </>
     );
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />;
+    return (
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />
+      </>
+    );
   }
 
-  // Non-blocking overlay while profile/activity bootstrap finishes after signup/login.
-  const isPreparing = profileLoading || !dataLoaded;
+  // Wait for the profile to finish loading BEFORE deciding between Dashboard
+  // and Onboarding — this guarantees the wizard never flashes for returning users.
+  if (profileLoading) {
+    return (
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-primary" size={32} />
+        </div>
+      </>
+    );
+  }
+
+  // Non-blocking overlay while activity data finishes hydrating after profile is ready.
+  const isPreparing = !dataLoaded;
 
   if (showOnboarding && user) {
-    return <OnboardingScreen userId={user.id} userName={userName} onComplete={handleOnboardingComplete} />;
+    return (
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <OnboardingScreen userId={user.id} userName={userName} onComplete={handleOnboardingComplete} />
+      </>
+    );
   }
 
   const pageTransition = {
@@ -275,6 +330,7 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background text-foreground relative overflow-hidden">
+      <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
       {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
