@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StepCounterState {
   steps: number;
@@ -7,110 +9,144 @@ interface StepCounterState {
   permissionState: 'prompt' | 'granted' | 'denied' | 'unsupported';
 }
 
-export function useStepCounter(onStepUpdate?: (steps: number) => void) {
+interface UseStepCounterOptions {
+  userId?: string;
+  onStepUpdate?: (steps: number) => void;
+  onSessionSaved?: (totalSteps: number) => void;
+}
+
+const STEP_MAGNITUDE_THRESHOLD = 12; // m/s² — peak above this counts as a step impact
+const STEP_DEBOUNCE_MS = 300; // min interval between steps
+
+export function useStepCounter(options: UseStepCounterOptions | ((steps: number) => void) = {}) {
+  // Backward compat: allow passing a callback directly
+  const opts: UseStepCounterOptions =
+    typeof options === 'function' ? { onStepUpdate: options } : options;
+  const { userId, onStepUpdate, onSessionSaved } = opts;
+
   const [state, setState] = useState<StepCounterState>({
     steps: 0,
     isActive: false,
-    isSupported: typeof DeviceMotionEvent !== 'undefined',
+    isSupported: typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined',
     permissionState: 'prompt',
   });
 
   const stepsRef = useRef(0);
-  const lastAccelRef = useRef<{ x: number; y: number; z: number } | null>(null);
   const lastStepTimeRef = useRef(0);
-  const magnitudeHistoryRef = useRef<number[]>([]);
-  const thresholdRef = useRef(1.2); // adaptive threshold
   const aboveThresholdRef = useRef(false);
+  const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     const acc = event.accelerationIncludingGravity;
-    if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+    if (!acc || acc.x == null || acc.y == null || acc.z == null) return;
 
-    const { x, y, z } = acc;
-
-    // Calculate magnitude of acceleration vector
-    const magnitude = Math.sqrt(x * x + y * y + z * z);
-
-    // Keep a rolling window for adaptive threshold
-    const history = magnitudeHistoryRef.current;
-    history.push(magnitude);
-    if (history.length > 50) history.shift();
-
-    // Calculate average magnitude
-    const avg = history.reduce((a, b) => a + b, 0) / history.length;
-
-    // Peak detection with debounce
+    const magnitude = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
     const now = Date.now();
-    const timeSinceLastStep = now - lastStepTimeRef.current;
 
-    // A step is detected when magnitude crosses above threshold then back below
-    const dynamicThreshold = avg + 1.8;
-
-    if (magnitude > dynamicThreshold && !aboveThresholdRef.current) {
+    // Rising edge detection with fixed threshold + debounce
+    if (magnitude > STEP_MAGNITUDE_THRESHOLD && !aboveThresholdRef.current) {
       aboveThresholdRef.current = true;
-    } else if (magnitude < avg + 0.5 && aboveThresholdRef.current) {
-      aboveThresholdRef.current = false;
-
-      // Debounce: min 250ms between steps (max ~4 steps/sec for running)
-      if (timeSinceLastStep > 250) {
+      if (now - lastStepTimeRef.current > STEP_DEBOUNCE_MS) {
         lastStepTimeRef.current = now;
         stepsRef.current += 1;
         setState(prev => ({ ...prev, steps: stepsRef.current }));
       }
+    } else if (magnitude < STEP_MAGNITUDE_THRESHOLD - 1.5 && aboveThresholdRef.current) {
+      aboveThresholdRef.current = false;
     }
-
-    lastAccelRef.current = { x, y, z };
   }, []);
 
   const start = useCallback(async () => {
     if (!state.isSupported) {
       setState(prev => ({ ...prev, permissionState: 'unsupported' }));
+      toast.error('Hardware motion sensors are not supported or permitted on this browser.');
       return;
     }
 
-    // iOS 13+ requires permission
+    // iOS 13+ requires explicit permission
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
       try {
         const permission = await (DeviceMotionEvent as any).requestPermission();
         if (permission !== 'granted') {
           setState(prev => ({ ...prev, permissionState: 'denied' }));
+          toast.error('Hardware motion sensors are not supported or permitted on this browser.');
           return;
         }
       } catch {
         setState(prev => ({ ...prev, permissionState: 'denied' }));
+        toast.error('Hardware motion sensors are not supported or permitted on this browser.');
         return;
       }
     }
 
+    handlerRef.current = handleMotion;
     window.addEventListener('devicemotion', handleMotion);
     setState(prev => ({ ...prev, isActive: true, permissionState: 'granted' }));
   }, [state.isSupported, handleMotion]);
 
-  const stop = useCallback(() => {
-    window.removeEventListener('devicemotion', handleMotion);
+  const persistSteps = useCallback(async (sessionSteps: number) => {
+    if (!userId || sessionSteps <= 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+
+    try {
+      // Read existing row to compute new total
+      const { data: existing } = await supabase
+        .from('activity_data')
+        .select('steps')
+        .eq('user_id', userId)
+        .eq('date', today)
+        .maybeSingle();
+
+      const newTotal = (existing?.steps ?? 0) + sessionSteps;
+
+      const { error } = await supabase
+        .from('activity_data')
+        .upsert(
+          { user_id: userId, date: today, steps: newTotal },
+          { onConflict: 'user_id,date' }
+        );
+
+      if (error) throw error;
+      onSessionSaved?.(newTotal);
+      toast.success(`Saved ${sessionSteps.toLocaleString()} steps`);
+    } catch (err) {
+      console.error('Failed to persist steps:', err);
+      toast.error('Could not save your steps. Please try again.');
+    }
+  }, [userId, onSessionSaved]);
+
+  const stop = useCallback(async () => {
+    if (handlerRef.current) {
+      window.removeEventListener('devicemotion', handlerRef.current);
+      handlerRef.current = null;
+    }
+    const sessionSteps = stepsRef.current;
     setState(prev => ({ ...prev, isActive: false }));
-  }, [handleMotion]);
+    await persistSteps(sessionSteps);
+  }, [persistSteps]);
 
   const reset = useCallback(() => {
     stepsRef.current = 0;
-    magnitudeHistoryRef.current = [];
     aboveThresholdRef.current = false;
+    lastStepTimeRef.current = 0;
     setState(prev => ({ ...prev, steps: 0 }));
   }, []);
 
-  // Propagate step updates
+  // Propagate live step updates to consumer
   useEffect(() => {
     if (state.steps > 0 && onStepUpdate) {
       onStepUpdate(state.steps);
     }
   }, [state.steps, onStepUpdate]);
 
-  // Cleanup
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      window.removeEventListener('devicemotion', handleMotion);
+      if (handlerRef.current) {
+        window.removeEventListener('devicemotion', handlerRef.current);
+      }
     };
-  }, [handleMotion]);
+  }, []);
 
   return { ...state, start, stop, reset };
 }
