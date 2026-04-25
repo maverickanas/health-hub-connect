@@ -134,6 +134,11 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     const sessionSteps = stepsRef.current;
     setState(prev => ({ ...prev, isActive: false }));
     await persistSteps(sessionSteps);
+    // Auto-reset local tracker so the next session starts fresh from 0
+    stepsRef.current = 0;
+    aboveThresholdRef.current = false;
+    lastStepTimeRef.current = 0;
+    setState(prev => ({ ...prev, steps: 0 }));
   }, [persistSteps]);
 
   const reset = useCallback(() => {
