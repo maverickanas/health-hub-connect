@@ -6,7 +6,7 @@ interface StepCounterState {
   steps: number;
   isActive: boolean;
   isSupported: boolean;
-  permissionState: 'prompt' | 'granted' | 'denied' | 'unsupported';
+  permissionState: 'prompt' | 'requesting' | 'granted' | 'denied' | 'unsupported';
 }
 
 interface UseStepCounterOptions {
