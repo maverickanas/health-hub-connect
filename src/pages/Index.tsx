@@ -181,7 +181,6 @@ const Index = () => {
   const handleLogout = async () => {
     await signOut();
     sessionStorage.removeItem('hh_welcome_shown');
-    sessionStorage.removeItem('hh_onboarding_done');
     setActivityData(EMPTY_ACTIVITY); setCurrentView(ViewState.HOME);
   };
 
