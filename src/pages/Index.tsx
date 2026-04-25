@@ -107,26 +107,24 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Check if new user needs onboarding (profile missing biometrics → force wizard)
+  // Smart routing gate: profile is the source of truth.
+  // - Returning user with complete biometrics (height/weight/age) → Dashboard
+  // - New user OR incomplete profile → Onboarding wizard
   useEffect(() => {
-    if (!user || profileLoading || !dataLoaded) return;
-    try {
-      // profile is null for brand-new users (no row yet) — force onboarding.
-      const needsOnboarding =
-        !profile ||
-        profile.height == null ||
-        profile.weight == null ||
-        profile.age == null;
-      if (needsOnboarding && !sessionStorage.getItem('hh_onboarding_done')) {
-        console.info('[Routing] Profile incomplete → routing to onboarding wizard.');
-        setShowOnboarding(true);
-      }
-    } catch (err) {
-      console.error('[Routing] Onboarding gate failed:', err);
-      // Fail-safe: send to onboarding so user is never stuck.
+    if (!user || profileLoading) return;
+    const needsOnboarding =
+      !profile ||
+      profile.height == null ||
+      profile.weight == null ||
+      profile.age == null;
+    if (needsOnboarding) {
+      console.info('[Routing] Profile incomplete → onboarding wizard.');
       setShowOnboarding(true);
+    } else {
+      console.info('[Routing] Existing user with complete profile → dashboard.');
+      setShowOnboarding(false);
     }
-  }, [user, profile, profileLoading, dataLoaded]);
+  }, [user, profile, profileLoading]);
 
   // Calculate streak
   useEffect(() => {
