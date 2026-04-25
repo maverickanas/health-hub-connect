@@ -6,7 +6,7 @@ interface StepCounterState {
   steps: number;
   isActive: boolean;
   isSupported: boolean;
-  permissionState: 'prompt' | 'granted' | 'denied' | 'unsupported';
+  permissionState: 'prompt' | 'requesting' | 'granted' | 'denied' | 'unsupported';
 }
 
 interface UseStepCounterOptions {
@@ -56,12 +56,14 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
   }, []);
 
-  const start = useCallback(async () => {
+  const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!state.isSupported) {
       setState(prev => ({ ...prev, permissionState: 'unsupported' }));
       toast.error('Hardware motion sensors are not supported or permitted on this browser.');
-      return;
+      return false;
     }
+
+    setState(prev => ({ ...prev, permissionState: 'requesting' as any }));
 
     // iOS 13+ requires explicit permission
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
@@ -70,19 +72,28 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
         if (permission !== 'granted') {
           setState(prev => ({ ...prev, permissionState: 'denied' }));
           toast.error('Hardware motion sensors are not supported or permitted on this browser.');
-          return;
+          return false;
         }
       } catch {
         setState(prev => ({ ...prev, permissionState: 'denied' }));
         toast.error('Hardware motion sensors are not supported or permitted on this browser.');
-        return;
+        return false;
       }
     }
 
+    setState(prev => ({ ...prev, permissionState: 'granted' }));
+    return true;
+  }, [state.isSupported]);
+
+  const start = useCallback(async () => {
+    if (state.permissionState !== 'granted') {
+      const ok = await requestPermission();
+      if (!ok) return;
+    }
     handlerRef.current = handleMotion;
     window.addEventListener('devicemotion', handleMotion);
-    setState(prev => ({ ...prev, isActive: true, permissionState: 'granted' }));
-  }, [state.isSupported, handleMotion]);
+    setState(prev => ({ ...prev, isActive: true }));
+  }, [state.permissionState, requestPermission, handleMotion]);
 
   const persistSteps = useCallback(async (sessionSteps: number) => {
     if (!userId || sessionSteps <= 0) return;
@@ -132,6 +143,28 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     setState(prev => ({ ...prev, steps: 0 }));
   }, []);
 
+  // Calibrate: detach listener, reset detection state (no save), reattach if previously active
+  const calibrate = useCallback(async () => {
+    const wasActive = !!handlerRef.current;
+    if (handlerRef.current) {
+      window.removeEventListener('devicemotion', handlerRef.current);
+      handlerRef.current = null;
+    }
+    stepsRef.current = 0;
+    aboveThresholdRef.current = false;
+    lastStepTimeRef.current = 0;
+    setState(prev => ({ ...prev, steps: 0, isActive: false }));
+
+    if (wasActive) {
+      // Brief pause so the sensor stream resets cleanly
+      await new Promise(r => setTimeout(r, 150));
+      handlerRef.current = handleMotion;
+      window.addEventListener('devicemotion', handleMotion);
+      setState(prev => ({ ...prev, isActive: true }));
+    }
+    toast.success('Step detection calibrated');
+  }, [handleMotion]);
+
   // Propagate live step updates to consumer
   useEffect(() => {
     if (state.steps > 0 && onStepUpdate) {
@@ -148,5 +181,5 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     };
   }, []);
 
-  return { ...state, start, stop, reset };
+  return { ...state, start, stop, reset, calibrate, requestPermission };
 }
