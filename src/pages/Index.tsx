@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ViewState, ActivityData } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
 import { useNotifications } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import useLocalStorage from '@/hooks/useLocalStorage';
@@ -16,6 +15,7 @@ import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
 import PreparingAccountOverlay from '@/components/health/PreparingAccountOverlay';
+import RoutingDebugBanner from '@/components/health/RoutingDebugBanner';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,10 +24,18 @@ const EMPTY_ACTIVITY: ActivityData = {
   stepGoal: 10000, calorieGoal: 2000, distanceGoal: 5.0, hydrationGoal: 3.0, history: [],
 };
 
+// True when a value parses to a finite, positive number (the only meaningful
+// state for biometrics like height/weight/age).
+const isFilledNumber = (v: unknown): boolean => {
+  if (v === null || v === undefined || v === '') return false;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0;
+};
+
 const Index = () => {
-  const { user, loading, signIn, signUp, signInAsGuest, signOut } = useAuth();
-  const { profile, loading: profileLoading } = useProfile(user);
+  const { user, loading, profile, profileLoading, refetchProfile, signIn, signUp, signInAsGuest, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
+
   const [isTracking, setIsTracking] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
