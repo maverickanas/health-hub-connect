@@ -143,6 +143,28 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     setState(prev => ({ ...prev, steps: 0 }));
   }, []);
 
+  // Calibrate: detach listener, reset detection state (no save), reattach if previously active
+  const calibrate = useCallback(async () => {
+    const wasActive = !!handlerRef.current;
+    if (handlerRef.current) {
+      window.removeEventListener('devicemotion', handlerRef.current);
+      handlerRef.current = null;
+    }
+    stepsRef.current = 0;
+    aboveThresholdRef.current = false;
+    lastStepTimeRef.current = 0;
+    setState(prev => ({ ...prev, steps: 0, isActive: false }));
+
+    if (wasActive) {
+      // Brief pause so the sensor stream resets cleanly
+      await new Promise(r => setTimeout(r, 150));
+      handlerRef.current = handleMotion;
+      window.addEventListener('devicemotion', handleMotion);
+      setState(prev => ({ ...prev, isActive: true }));
+    }
+    toast.success('Step detection calibrated');
+  }, [handleMotion]);
+
   // Propagate live step updates to consumer
   useEffect(() => {
     if (state.steps > 0 && onStepUpdate) {
@@ -159,5 +181,5 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     };
   }, []);
 
-  return { ...state, start, stop, reset };
+  return { ...state, start, stop, reset, calibrate, requestPermission };
 }
