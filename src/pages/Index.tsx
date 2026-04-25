@@ -230,7 +230,7 @@ const Index = () => {
   }, []);
 
   const handleOnboardingComplete = () => {
-    sessionStorage.setItem('hh_onboarding_done', 'true');
+    // Profile now has biometrics; the routing effect will pick it up on next refetch.
     setShowOnboarding(false);
     setShowWelcome(true);
     sessionStorage.setItem('hh_welcome_shown', 'true');
