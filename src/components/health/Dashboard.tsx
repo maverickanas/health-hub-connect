@@ -191,7 +191,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
 
       {/* Step Counter */}
       <div className="px-6 pb-4">
-        <StepCounterWidget onStepsChange={(steps) => onUpdateData({ steps: data.steps + steps })} />
+        <StepCounterWidget
+          userId={userId}
+          onSessionSaved={(newDailyTotal) => onUpdateData({ steps: newDailyTotal })}
+        />
       </div>
 
       {/* Activity History Chart */}
