@@ -271,34 +271,57 @@ const Index = () => {
   void profileLoading;
   const userEmail = user?.email || (isGuest ? 'guest@healthhub.app' : '');
 
+  // Compute which routing rule currently applies — drives the dev debug banner.
+  const routingRule: 'loading' | 'returning' | 'onboarding' | 'unauthenticated' =
+    !isAuthenticated ? 'unauthenticated'
+    : (loading || profileLoading) ? 'loading'
+    : needsOnboarding ? 'onboarding'
+    : 'returning';
+
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin text-primary" size={32} />
-      </div>
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-primary" size={32} />
+        </div>
+      </>
     );
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />;
+    return (
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />
+      </>
+    );
   }
 
-  // Non-blocking overlay while profile/activity bootstrap finishes after signup/login.
-  const isPreparing = profileLoading || !dataLoaded;
+  // Wait for the profile to finish loading BEFORE deciding between Dashboard
+  // and Onboarding — this guarantees the wizard never flashes for returning users.
+  if (profileLoading) {
+    return (
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+          <Loader2 className="animate-spin text-primary" size={32} />
+        </div>
+      </>
+    );
+  }
+
+  // Non-blocking overlay while activity data finishes hydrating after profile is ready.
+  const isPreparing = !dataLoaded;
 
   if (showOnboarding && user) {
-    return <OnboardingScreen userId={user.id} userName={userName} onComplete={handleOnboardingComplete} />;
+    return (
+      <>
+        <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+        <OnboardingScreen userId={user.id} userName={userName} onComplete={handleOnboardingComplete} />
+      </>
+    );
   }
-
-  const pageTransition = {
-    initial: { opacity: 0, x: 20 }, animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -20 }, transition: { type: 'spring' as const, damping: 25, stiffness: 200 },
-  };
-
-  return (
-    <div className="flex flex-col h-[100dvh] bg-background text-foreground relative overflow-hidden">
-      {isPreparing && <PreparingAccountOverlay />}
-      {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
       <main className="flex-1 relative w-full overflow-hidden">
         <AnimatePresence mode="wait">
