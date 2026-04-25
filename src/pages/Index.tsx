@@ -323,6 +323,17 @@ const Index = () => {
     );
   }
 
+  const pageTransition = {
+    initial: { opacity: 0, x: 20 }, animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -20 }, transition: { type: 'spring' as const, damping: 25, stiffness: 200 },
+  };
+
+  return (
+    <div className="flex flex-col h-[100dvh] bg-background text-foreground relative overflow-hidden">
+      <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
+      {isPreparing && <PreparingAccountOverlay />}
+      {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
+
       <main className="flex-1 relative w-full overflow-hidden">
         <AnimatePresence mode="wait">
           {currentView === ViewState.HOME && (
