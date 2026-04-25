@@ -56,12 +56,14 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
   }, []);
 
-  const start = useCallback(async () => {
+  const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!state.isSupported) {
       setState(prev => ({ ...prev, permissionState: 'unsupported' }));
       toast.error('Hardware motion sensors are not supported or permitted on this browser.');
-      return;
+      return false;
     }
+
+    setState(prev => ({ ...prev, permissionState: 'requesting' as any }));
 
     // iOS 13+ requires explicit permission
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
@@ -70,19 +72,28 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
         if (permission !== 'granted') {
           setState(prev => ({ ...prev, permissionState: 'denied' }));
           toast.error('Hardware motion sensors are not supported or permitted on this browser.');
-          return;
+          return false;
         }
       } catch {
         setState(prev => ({ ...prev, permissionState: 'denied' }));
         toast.error('Hardware motion sensors are not supported or permitted on this browser.');
-        return;
+        return false;
       }
     }
 
+    setState(prev => ({ ...prev, permissionState: 'granted' }));
+    return true;
+  }, [state.isSupported]);
+
+  const start = useCallback(async () => {
+    if (state.permissionState !== 'granted') {
+      const ok = await requestPermission();
+      if (!ok) return;
+    }
     handlerRef.current = handleMotion;
     window.addEventListener('devicemotion', handleMotion);
-    setState(prev => ({ ...prev, isActive: true, permissionState: 'granted' }));
-  }, [state.isSupported, handleMotion]);
+    setState(prev => ({ ...prev, isActive: true }));
+  }, [state.permissionState, requestPermission, handleMotion]);
 
   const persistSteps = useCallback(async (sessionSteps: number) => {
     if (!userId || sessionSteps <= 0) return;
