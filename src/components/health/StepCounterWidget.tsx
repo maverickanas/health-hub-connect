@@ -4,11 +4,15 @@ import { Footprints, Play, Square, RotateCcw, Smartphone } from 'lucide-react';
 import { useStepCounter } from '@/hooks/useStepCounter';
 
 interface StepCounterWidgetProps {
-  onStepsChange: (steps: number) => void;
+  userId?: string;
+  onSessionSaved?: (newDailyTotal: number) => void;
 }
 
-const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ onStepsChange }) => {
-  const { steps, isActive, isSupported, permissionState, start, stop, reset } = useStepCounter(onStepsChange);
+const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ userId, onSessionSaved }) => {
+  const { steps, isActive, isSupported, permissionState, start, stop, reset } = useStepCounter({
+    userId,
+    onSessionSaved,
+  });
 
   if (!isSupported) {
     return (
@@ -48,6 +52,7 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ onStepsChange }) 
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={start}
+              aria-label="Start step tracking"
               className="w-9 h-9 rounded-full bg-luxury-neon/10 border border-luxury-neon/20 flex items-center justify-center text-luxury-neon"
             >
               <Play size={14} />
@@ -56,6 +61,7 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ onStepsChange }) 
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={stop}
+              aria-label="Stop step tracking and save"
               className="w-9 h-9 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400"
             >
               <Square size={12} />
@@ -64,6 +70,7 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ onStepsChange }) 
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={reset}
+            aria-label="Reset session counter"
             className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground"
           >
             <RotateCcw size={12} />
@@ -78,7 +85,7 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ onStepsChange }) 
           className="flex items-center gap-2"
         >
           <div className="w-1.5 h-1.5 rounded-full bg-luxury-neon animate-pulse" />
-          <span className="text-[9px] font-bold text-luxury-neon uppercase tracking-wider">Tracking active</span>
+          <span className="text-[9px] font-bold text-luxury-neon uppercase tracking-wider">Tracking active — walk to count steps</span>
         </motion.div>
       )}
 
