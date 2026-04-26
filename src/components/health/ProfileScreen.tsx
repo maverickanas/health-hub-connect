@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, LogOut, Ruler, Weight, Calendar, Activity, Pencil, X, Save, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { User, LogOut, Ruler, Weight, Calendar, Activity, Pencil, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { UserMetrics } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import GoalSliders from './GoalSliders';
+import EditProfileScreen from './EditProfileScreen';
 
 interface ProfileScreenProps {
   userName: string;
