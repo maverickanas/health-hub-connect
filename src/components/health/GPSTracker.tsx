@@ -131,7 +131,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         else if (err.code === 2) { setGpsError('GPS unavailable'); }
         else { setGpsError('GPS timeout — move to open area'); }
       },
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
   }, [activityMode]);
 
@@ -206,7 +206,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         else if (err.code === 2) setGpsError('GPS unavailable');
         else setGpsError('GPS timeout — move to open area');
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
   }, []);
 
