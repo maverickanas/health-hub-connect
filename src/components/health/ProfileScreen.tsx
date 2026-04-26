@@ -91,9 +91,8 @@ const DeleteAccountButton: React.FC = () => {
 };
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout, stepGoal, calorieGoal, hydrationGoal, onUpdateGoals }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [displayName, setDisplayName] = useState(userName);
   const [metrics, setMetrics] = useState<UserMetrics>({
     height: 170, weight: 70, age: 25, gender: 'Male', activityLevel: 'Lightly Active', fitnessGoal: 'Maintain',
@@ -116,22 +115,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
     loadProfile();
   }, [user]);
 
-  const handleSave = async () => {
-    if (!user) { toast.error('Sign in to save your profile'); return; }
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('profiles').update({
-        display_name: displayName, height: metrics.height, weight: metrics.weight,
-        age: metrics.age, activity_level: metrics.activityLevel, fitness_goal: metrics.fitnessGoal, gender: metrics.gender,
-      } as any).eq('user_id', user.id);
-      if (error) throw error;
-      toast.success('Profile updated successfully');
-      setIsEditing(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
+  // Save is handled inside <EditProfileScreen/>; this just syncs local state on close.
+  const handleSaved = (next: { displayName: string; metrics: UserMetrics }) => {
+    setDisplayName(next.displayName);
+    setMetrics(next.metrics);
   };
 
   const bmi = metrics.height > 0 ? (metrics.weight / ((metrics.height / 100) ** 2)).toFixed(1) : '0';
