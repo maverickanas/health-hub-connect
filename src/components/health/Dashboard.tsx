@@ -275,6 +275,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
           </motion.div>
         </div>
       </div>
+
+      <StreakHistoryModal
+        open={showStreakHistory}
+        onClose={() => setShowStreakHistory(false)}
+        userId={userId}
+      />
     </div>
   );
 };
