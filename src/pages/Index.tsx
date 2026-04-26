@@ -141,29 +141,26 @@ const Index = () => {
   }, [user, profile, profileLoading, needsOnboarding]);
 
 
-  // Calculate streak
+  // Calculate streak — strict: a day only counts if user hit step_goal (or
+  // calorie intake goal as fallback). See src/lib/streak.ts for the rule.
   useEffect(() => {
     if (!user) return;
-    const calcStreak = async () => {
+    let cancelled = false;
+    (async () => {
       try {
         const { data: rows } = await supabase
-          .from('activity_data').select('date, steps, step_goal')
-          .eq('user_id', user.id).order('date', { ascending: false }).limit(60);
-        if (!rows?.length) { setStreak(0); return; }
-        let count = 0;
-        const today = new Date();
-        for (let i = 0; i < 60; i++) {
-          const d = new Date(today); d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
-          const row = rows.find(r => r.date === dateStr);
-          if (row && row.steps >= (row.step_goal || 10000) * 0.5) count++;
-          else if (i > 0) break;
-        }
-        setStreak(count);
-      } catch { setStreak(0); }
-    };
-    calcStreak();
-  }, [user, activityData.steps]);
+          .from('activity_data')
+          .select('date, steps, step_goal, calories_consumed, calorie_goal')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(365);
+        if (cancelled) return;
+        const { calculateCurrentStreak } = await import('@/lib/streak');
+        setStreak(calculateCurrentStreak((rows || []) as any));
+      } catch { if (!cancelled) setStreak(0); }
+    })();
+    return () => { cancelled = true; };
+  }, [user, activityData.steps, activityData.caloriesConsumed]);
 
   // Show welcome
   useEffect(() => {

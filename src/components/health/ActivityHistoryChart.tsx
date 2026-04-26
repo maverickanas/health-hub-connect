@@ -85,13 +85,28 @@ const ActivityHistoryChart: React.FC<ActivityHistoryChartProps> = ({ userId }) =
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const val = payload[0].value;
+    const display = metric === 'distance' ? val.toFixed(1) : val.toLocaleString();
     return (
-      <div className="glass-panel px-3 py-2 rounded-xl border border-border/50">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase">{label}</p>
-        <p className="text-sm font-black text-foreground">
-          {metric === 'distance' ? val.toFixed(1) : val.toLocaleString()}
-          <span className="text-[10px] text-muted-foreground ml-1">{config.unit}</span>
-        </p>
+      <div className="relative" style={{ width: 64, height: 64 }}>
+        {/* Glow ring */}
+        <div
+          className="absolute inset-0 rounded-full border-2"
+          style={{
+            borderColor: config.color,
+            background: `${config.color}1A`,
+            boxShadow: `0 0 24px ${config.color}66, inset 0 0 12px ${config.color}33`,
+          }}
+        />
+        {/* Perfectly centered text + label */}
+        <div
+          className="absolute top-1/2 left-1/2 flex flex-col items-center justify-center text-center leading-none"
+          style={{ transform: 'translate(-50%, -50%)' }}
+        >
+          <span className="text-[11px] font-black text-foreground tabular-nums">{display}</span>
+          <span className="text-[7px] font-extrabold text-muted-foreground uppercase tracking-[0.15em] mt-0.5">
+            {label}
+          </span>
+        </div>
       </div>
     );
   };

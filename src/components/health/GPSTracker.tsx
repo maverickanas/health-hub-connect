@@ -131,7 +131,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         else if (err.code === 2) { setGpsError('GPS unavailable'); }
         else { setGpsError('GPS timeout — move to open area'); }
       },
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
   }, [activityMode]);
 
@@ -206,7 +206,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         else if (err.code === 2) setGpsError('GPS unavailable');
         else setGpsError('GPS timeout — move to open area');
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
   }, []);
 
@@ -359,7 +359,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
 
       {/* ============ LAYER 3 — CONTROL PANEL ============ */}
       <div
-        className="absolute left-3 right-3 z-[1000] mx-auto max-w-md rounded-[2rem] border border-white/5 p-5 space-y-4"
+        className="absolute left-3 right-3 z-[1000] mx-auto max-w-md rounded-[1.5rem] border border-white/5 p-3 space-y-2.5"
         style={{
           bottom: 'calc(6.25rem + env(safe-area-inset-bottom, 0px))',
           background: 'rgba(18, 18, 18, 0.92)',
@@ -374,7 +374,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           style={{ background: 'rgba(0,0,0,0.4)' }}
         >
           {/* center divider */}
-          <span className="pointer-events-none absolute top-2 bottom-2 left-1/2 w-px bg-white/10" />
+          <span className="pointer-events-none absolute top-1.5 bottom-1.5 left-1/2 w-px bg-white/10" />
 
           {(['walking', 'cycling'] as ActivityMode[]).map((mode) => {
             const Icon = mode === 'walking' ? Footprints : Bike;
@@ -385,7 +385,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
                 key={mode}
                 onClick={() => !locked && setActivityMode(mode)}
                 disabled={locked}
-                className={`relative py-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] transition-colors ${
+                className={`relative py-2 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.3em] transition-colors ${
                   active ? 'text-primary' : 'text-muted-foreground'
                 } ${locked ? 'opacity-60 cursor-not-allowed' : ''}`}
                 style={
@@ -400,7 +400,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
                     : {}
                 }
               >
-                <Icon size={15} strokeWidth={active ? 2.5 : 2} />
+                <Icon size={13} strokeWidth={active ? 2.5 : 2} />
                 {mode}
               </button>
             );
@@ -417,14 +417,14 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
               exit={{ opacity: 0, scale: 0.96 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleStart}
-              className="w-full rounded-2xl bg-primary text-primary-foreground py-4 flex flex-col items-center justify-center gap-0.5"
-              style={{ boxShadow: '0 0 48px rgba(204,255,0,0.5), 0 10px 28px rgba(204,255,0,0.2)' }}
+              className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 flex flex-col items-center justify-center gap-0"
+              style={{ boxShadow: '0 0 36px rgba(204,255,0,0.45), 0 8px 22px rgba(204,255,0,0.18)' }}
             >
-              <span className="flex items-center gap-2.5">
-                <Play size={20} fill="currentColor" />
-                <span className="text-sm font-black uppercase tracking-[0.3em]">Start Workout</span>
+              <span className="flex items-center gap-2">
+                <Play size={15} fill="currentColor" />
+                <span className="text-[11px] font-black uppercase tracking-[0.3em]">Start Workout</span>
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">
+              <span className="text-[8px] font-bold uppercase tracking-[0.2em] opacity-70">
                 Let's get moving!
               </span>
             </motion.button>
@@ -492,7 +492,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         </AnimatePresence>
 
         {/* 3. Metrics Grid — 3 square cards */}
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {[
             { Icon: Clock, value: formatTime(elapsed), label: 'Time' },
             { Icon: Navigation, value: secondaryMetric.value, label: secondaryMetric.label },
@@ -503,12 +503,12 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 + i * 0.06 }}
-              className="aspect-square rounded-2xl border border-white/5 flex flex-col items-center justify-center px-1.5"
+              className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-2"
               style={{ background: 'rgba(24,24,27,0.55)' }}
             >
               <m.Icon
-                size={16}
-                className="text-primary mb-1.5"
+                size={12}
+                className="text-primary mb-1"
                 style={{ filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.45))' }}
               />
               <AnimatePresence mode="wait">
@@ -518,13 +518,13 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.2 }}
-                  className="text-[22px] leading-none font-black text-foreground tabular-nums"
+                  className="text-base leading-none font-black text-foreground tabular-nums"
                   style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
                 >
                   {m.value}
                 </motion.p>
               </AnimatePresence>
-              <p className="mt-1.5 text-[8px] font-extrabold text-muted-foreground uppercase tracking-[0.18em]">
+              <p className="mt-1 text-[7px] font-extrabold text-muted-foreground uppercase tracking-[0.18em]">
                 {m.label}
               </p>
             </motion.div>
