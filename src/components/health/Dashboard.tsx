@@ -5,7 +5,7 @@ import { ActivityData } from '@/types';
 import ConcentricHUD from './ConcentricHUD';
 import StepCounterWidget from './StepCounterWidget';
 import ActivityHistoryChart from './ActivityHistoryChart';
-import NotificationToggle from './NotificationToggle';
+import StreakHistoryModal from './StreakHistoryModal';
 
 interface DashboardProps {
   data: ActivityData;
@@ -23,6 +23,9 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleTracking, isTracking, onUpdateData, userId, notificationsEnabled = false, onToggleNotifications, onRequestNotificationPermission }) => {
   const [customIntake, setCustomIntake] = useState('');
   const [activeSection, setActiveSection] = useState<'calories' | 'hydration'>('calories');
+  const [showStreakHistory, setShowStreakHistory] = useState(false);
+  // Notification props are intentionally unused here — reminders UI was replaced by Streak badge.
+  void notificationsEnabled; void onToggleNotifications; void onRequestNotificationPermission;
 
   const activeCaloriesProgress = (data.calories / data.calorieGoal) * 100;
   const stepsProgress = (data.steps / data.stepGoal) * 100;
@@ -48,23 +51,27 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
           <h2 className="text-xl font-black text-foreground tracking-tight uppercase">{userName}</h2>
         </div>
         <div className="flex items-center gap-2">
-          {onToggleNotifications && onRequestNotificationPermission && (
-            <NotificationToggle
-              enabled={notificationsEnabled}
-              onToggle={onToggleNotifications}
-              onRequestPermission={onRequestNotificationPermission}
-            />
-          )}
-          {streak > 0 && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-luxury-neon/10 border border-luxury-neon/20"
-            >
-              <span className="text-sm">🔥</span>
-              <span className="text-[10px] font-black text-luxury-neon">{streak}d</span>
-            </motion.div>
-          )}
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            whileTap={{ scale: 0.94 }}
+            onClick={() => setShowStreakHistory(true)}
+            aria-label="Open streak history"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-xl border transition-colors ${
+              streak > 0
+                ? 'bg-luxury-neon/10 border-luxury-neon/40 text-luxury-neon'
+                : 'bg-white/5 border-white/10 text-muted-foreground hover:text-foreground'
+            }`}
+            style={
+              streak > 0
+                ? { boxShadow: '0 0 18px rgba(204,255,0,0.25)' }
+                : undefined
+            }
+          >
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Streak</span>
+            <span className="text-[11px] font-black tabular-nums">{streak}</span>
+            <span className="text-sm leading-none">🔥</span>
+          </motion.button>
         </div>
       </div>
 
