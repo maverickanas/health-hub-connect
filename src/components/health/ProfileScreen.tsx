@@ -192,87 +192,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
         {user && <DeleteAccountButton />}
       </div>
 
-      <AnimatePresence>
-        {isEditing && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end justify-center"
-            onClick={(e) => e.target === e.currentTarget && setIsEditing(false)}>
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-full max-w-md bg-background rounded-t-[2rem] p-6 pb-10 max-h-[85dvh] overflow-y-auto no-scrollbar border-t border-border">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-black text-foreground uppercase tracking-wider">Edit Profile</h2>
-                  <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-[0.2em]">Update your identity</p>
-                </div>
-                <button onClick={() => setIsEditing(false)} className="p-2 rounded-xl hover:bg-muted">
-                  <X size={18} className="text-muted-foreground" />
-                </button>
-              </div>
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Display Name</label>
-                  <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full bg-muted border border-border rounded-2xl px-4 py-3.5 text-sm text-foreground outline-none focus:border-primary/50 transition-all" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Height (CM)</label>
-                    <input type="number" value={metrics.height || ''} onChange={(e) => setMetrics(prev => ({ ...prev, height: Number(e.target.value) }))}
-                      className="w-full bg-muted border border-border rounded-2xl px-4 py-3.5 text-sm text-foreground outline-none focus:border-primary/50 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Weight (KG)</label>
-                    <input type="number" value={metrics.weight || ''} onChange={(e) => setMetrics(prev => ({ ...prev, weight: Number(e.target.value) }))}
-                      className="w-full bg-muted border border-border rounded-2xl px-4 py-3.5 text-sm text-foreground outline-none focus:border-primary/50 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Age</label>
-                    <input type="number" value={metrics.age || ''} onChange={(e) => setMetrics(prev => ({ ...prev, age: Number(e.target.value) }))}
-                      className="w-full bg-muted border border-border rounded-2xl px-4 py-3.5 text-sm text-foreground outline-none focus:border-primary/50 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Gender</label>
-                    <select value={metrics.gender || 'Male'} onChange={(e) => setMetrics(prev => ({ ...prev, gender: e.target.value as any }))}
-                      className="w-full bg-muted border border-border rounded-2xl px-4 py-3.5 text-sm text-foreground outline-none focus:border-primary/50 transition-all appearance-none cursor-pointer">
-                      {GENDERS.map(g => <option key={g} value={g} className="bg-background">{g}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Activity Level</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ACTIVITY_LEVELS.map(level => (
-                      <button key={level} onClick={() => setMetrics(prev => ({ ...prev, activityLevel: level as any }))}
-                        className={`py-3 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
-                          metrics.activityLevel === level ? 'bg-primary text-primary-foreground border-primary/50' : 'bg-muted text-muted-foreground border-transparent hover:text-foreground'
-                        }`}>{level}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Fitness Goal</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {FITNESS_GOALS.map(goal => (
-                      <button key={goal} onClick={() => setMetrics(prev => ({ ...prev, fitnessGoal: goal as any }))}
-                        className={`py-3 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
-                          metrics.fitnessGoal === goal ? 'bg-primary text-primary-foreground border-primary/50' : 'bg-muted text-muted-foreground border-transparent hover:text-foreground'
-                        }`}>{goal}</button>
-                    ))}
-                  </div>
-                </div>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={handleSave} disabled={isSaving}
-                  className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(204,255,0,0.2)] disabled:opacity-50">
-                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <EditProfileScreen
+        open={isEditing}
+        onClose={() => setIsEditing(false)}
+        initialDisplayName={displayName}
+        initialMetrics={metrics}
+        avatarUrl={profile?.avatar_url ?? null}
+        onSaved={handleSaved}
+      />
     </div>
   );
 };
