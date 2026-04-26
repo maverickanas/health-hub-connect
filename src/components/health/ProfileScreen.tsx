@@ -18,9 +18,7 @@ interface ProfileScreenProps {
   onUpdateGoals: (updates: { stepGoal?: number; calorieGoal?: number; hydrationGoal?: number }) => void;
 }
 
-const ACTIVITY_LEVELS = ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'];
-const FITNESS_GOALS = ['Weight Loss', 'Maintain', 'Muscle Gain'];
-const GENDERS = ['Male', 'Female', 'Other'];
+// Activity / fitness / gender constants now live inside <EditProfileScreen/>.
 
 const DeleteAccountButton: React.FC = () => {
   const [showConfirm, setShowConfirm] = useState(false);
