@@ -366,7 +366,7 @@ const Index = () => {
           )}
         </AnimatePresence>
       </main>
-      <Navigation currentView={currentView} setView={setCurrentView} />
+      {/* <Navigation currentView={currentView} setView={setCurrentView} /> */}
     </div>
   );
 };
