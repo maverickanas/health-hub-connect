@@ -5,10 +5,12 @@ import {
   AlertTriangle, Footprints, Bike, RotateCw, Save, Loader2,
   Menu, Crosshair,
 } from 'lucide-react';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
+import CharacterMarker from './CharacterMarker';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface GeoPoint {
   lat: number;
@@ -33,12 +35,15 @@ const haversineDistance = (a: GeoPoint, b: GeoPoint): number => {
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 };
 
-const neonIcon = new L.DivIcon({
-  className: '',
-  html: `<div style="width:22px;height:22px;background:rgba(204,255,0,0.95);border-radius:50%;box-shadow:0 0 24px rgba(204,255,0,0.8),0 0 8px rgba(204,255,0,1);border:3px solid rgba(10,10,10,0.9);"></div>`,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
+// Compute bearing (deg, 0=N, clockwise) between two geo points.
+const computeBearing = (a: GeoPoint, b: GeoPoint): number => {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+            Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+};
 
 const MapFollower: React.FC<{ position: [number, number] | null; shouldFly?: boolean; recenterTrigger?: number }> = ({
   position, shouldFly, recenterTrigger,
@@ -75,6 +80,21 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const [activityMode, setActivityMode] = useState<ActivityMode>('walking');
   const [isSaving, setIsSaving] = useState(false);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
+  const [bearing, setBearing] = useState<number>(0);
+  const [profileBits, setProfileBits] = useState<{ gender?: string | null; avatar_url?: string | null }>({});
+
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('gender, avatar_url')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setProfileBits(data); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const watchIdRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -112,6 +132,16 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       (pos) => {
         const point: GeoPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
         setCurrentPosition(point);
+
+        // Capture device heading if available; otherwise derive bearing from last point.
+        const devHeading = pos.coords.heading;
+        if (typeof devHeading === 'number' && !Number.isNaN(devHeading)) {
+          setBearing(devHeading);
+        } else if (lastPointRef.current) {
+          const d = haversineDistance(lastPointRef.current, point);
+          if (d > 0.003) setBearing(computeBearing(lastPointRef.current, point));
+        }
+
         if (!isPausedRef.current) {
           if (lastPointRef.current) {
             const d = haversineDistance(lastPointRef.current, point);
@@ -249,7 +279,14 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
             recenterTrigger={recenterTrigger}
           />
           {currentPosition && (
-            <Marker position={[currentPosition.lat, currentPosition.lng]} icon={neonIcon} />
+            <CharacterMarker
+              position={currentPosition}
+              bearing={bearing}
+              mode={activityMode}
+              gender={profileBits.gender}
+              avatarUrl={profileBits.avatar_url}
+              isMoving={workoutState === 'active'}
+            />
           )}
           {routeLatLngs.length > 1 && (
             <>
