@@ -80,6 +80,21 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const [activityMode, setActivityMode] = useState<ActivityMode>('walking');
   const [isSaving, setIsSaving] = useState(false);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
+  const [bearing, setBearing] = useState<number>(0);
+  const [profileBits, setProfileBits] = useState<{ gender?: string | null; avatar_url?: string | null }>({});
+
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('gender, avatar_url')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setProfileBits(data); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const watchIdRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
