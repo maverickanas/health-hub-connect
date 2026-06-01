@@ -5,10 +5,12 @@ import {
   AlertTriangle, Footprints, Bike, RotateCw, Save, Loader2,
   Menu, Crosshair,
 } from 'lucide-react';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
+import CharacterMarker from './CharacterMarker';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface GeoPoint {
   lat: number;
