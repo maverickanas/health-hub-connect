@@ -279,7 +279,14 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
             recenterTrigger={recenterTrigger}
           />
           {currentPosition && (
-            <Marker position={[currentPosition.lat, currentPosition.lng]} icon={neonIcon} />
+            <CharacterMarker
+              position={currentPosition}
+              bearing={bearing}
+              mode={activityMode}
+              gender={profileBits.gender}
+              avatarUrl={profileBits.avatar_url}
+              isMoving={workoutState === 'active'}
+            />
           )}
           {routeLatLngs.length > 1 && (
             <>
