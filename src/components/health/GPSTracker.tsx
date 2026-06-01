@@ -132,6 +132,16 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       (pos) => {
         const point: GeoPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
         setCurrentPosition(point);
+
+        // Capture device heading if available; otherwise derive bearing from last point.
+        const devHeading = pos.coords.heading;
+        if (typeof devHeading === 'number' && !Number.isNaN(devHeading)) {
+          setBearing(devHeading);
+        } else if (lastPointRef.current) {
+          const d = haversineDistance(lastPointRef.current, point);
+          if (d > 0.003) setBearing(computeBearing(lastPointRef.current, point));
+        }
+
         if (!isPausedRef.current) {
           if (lastPointRef.current) {
             const d = haversineDistance(lastPointRef.current, point);
