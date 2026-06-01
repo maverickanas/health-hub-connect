@@ -35,12 +35,15 @@ const haversineDistance = (a: GeoPoint, b: GeoPoint): number => {
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 };
 
-const neonIcon = new L.DivIcon({
-  className: '',
-  html: `<div style="width:22px;height:22px;background:rgba(204,255,0,0.95);border-radius:50%;box-shadow:0 0 24px rgba(204,255,0,0.8),0 0 8px rgba(204,255,0,1);border:3px solid rgba(10,10,10,0.9);"></div>`,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
+// Compute bearing (deg, 0=N, clockwise) between two geo points.
+const computeBearing = (a: GeoPoint, b: GeoPoint): number => {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+            Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+};
 
 const MapFollower: React.FC<{ position: [number, number] | null; shouldFly?: boolean; recenterTrigger?: number }> = ({
   position, shouldFly, recenterTrigger,
