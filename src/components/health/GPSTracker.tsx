@@ -266,10 +266,44 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
 
   const gpsLive = !gpsError && currentPosition !== null;
 
+  // Voice navigation: announce next turn step as user progresses.
+  useEffect(() => {
+    if (!voiceEnabled || !plannedRoute || !currentPosition) return;
+    const steps = plannedRoute.steps;
+    if (!steps?.length) return;
+    // Find the step whose polyline start is closest to current position.
+    let nearestIdx = 0; let nearestD = Infinity;
+    plannedRoute.polyline.forEach(([la, ln], idx) => {
+      const dx = la - currentPosition.lat, dy = ln - currentPosition.lng;
+      const d = dx * dx + dy * dy;
+      if (d < nearestD) { nearestD = d; nearestIdx = idx; }
+    });
+    // Map polyline index → step index proportionally.
+    const stepIdx = Math.min(steps.length - 1, Math.floor((nearestIdx / Math.max(1, plannedRoute.polyline.length - 1)) * steps.length));
+    if (stepIdx !== lastSpokenStepRef.current && steps[stepIdx]?.instruction) {
+      lastSpokenStepRef.current = stepIdx;
+      try {
+        const u = new SpeechSynthesisUtterance(steps[stepIdx].instruction);
+        u.rate = 1; u.pitch = 1; u.lang = 'en-US';
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      } catch {}
+    }
+  }, [voiceEnabled, plannedRoute, currentPosition]);
+
+  // Reset step tracking when route changes
+  useEffect(() => { lastSpokenStepRef.current = -1; }, [plannedRoute]);
+
+  // CSS rotation for "follow heading" — counter-rotate to keep travel direction up.
+  const mapRotation = followHeading ? -bearing : 0;
+
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#0A0A0A]">
       {/* ============ LAYER 1 — MAP ============ */}
-      <div className="absolute inset-0 z-0">
+      <div
+        className="absolute inset-0 z-0 transition-transform duration-500 ease-out"
+        style={{ transform: `rotate(${mapRotation}deg)`, transformOrigin: 'center' }}
+      >
         <MapContainer
           center={mapCenter}
           zoom={16}
@@ -294,14 +328,28 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
               isMoving={workoutState === 'active'}
             />
           )}
+
+          {/* Planned navigation route (cyan) */}
+          {plannedRoute && plannedRoute.polyline.length > 1 && (
+            <>
+              <Polyline
+                positions={plannedRoute.polyline}
+                pathOptions={{ color: '#00E5FF', weight: 12, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }}
+              />
+              <Polyline
+                positions={plannedRoute.polyline}
+                pathOptions={{ color: '#00E5FF', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', dashArray: '1 8' }}
+              />
+            </>
+          )}
+
+          {/* Actual workout trail (lime) */}
           {routeLatLngs.length > 1 && (
             <>
-              {/* Outer glow */}
               <Polyline
                 positions={routeLatLngs}
                 pathOptions={{ color: '#CCFF00', weight: 12, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }}
               />
-              {/* Core line */}
               <Polyline
                 positions={routeLatLngs}
                 pathOptions={{ color: '#CCFF00', weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
@@ -311,18 +359,41 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         </MapContainer>
       </div>
 
-      {/* Recenter / crosshair FAB — middle-right */}
-      <button
-        onClick={() => setRecenterTrigger(t => t + 1)}
-        aria-label="Recenter map"
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-[1000] w-12 h-12 rounded-2xl flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-95"
-        style={{
-          background: 'rgba(10,10,10,0.6)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-        }}
-      >
-        <Crosshair size={20} className="text-primary" style={{ filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.6))' }} />
-      </button>
+      {/* Right-side FAB stack: recenter + compass */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-2.5">
+        <button
+          onClick={() => setRecenterTrigger(t => t + 1)}
+          aria-label="Recenter map"
+          className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-95"
+          style={{
+            background: 'rgba(10,10,10,0.6)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+          }}
+        >
+          <Crosshair size={20} className="text-primary" style={{ filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.6))' }} />
+        </button>
+        <button
+          onClick={() => setFollowHeading(v => !v)}
+          aria-label="Toggle compass follow"
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center border backdrop-blur-xl transition-all active:scale-95 ${
+            followHeading ? 'border-primary/60 bg-primary/15' : 'border-white/10'
+          }`}
+          style={{
+            background: followHeading ? 'rgba(204,255,0,0.12)' : 'rgba(10,10,10,0.6)',
+            boxShadow: followHeading ? '0 0 24px rgba(204,255,0,0.35)' : '0 8px 24px rgba(0,0,0,0.5)',
+          }}
+        >
+          <Compass
+            size={20}
+            className={followHeading ? 'text-primary' : 'text-foreground'}
+            style={{
+              transform: `rotate(${followHeading ? 0 : -bearing}deg)`,
+              transition: 'transform 0.4s ease-out',
+              filter: followHeading ? 'drop-shadow(0 0 6px rgba(204,255,0,0.7))' : undefined,
+            }}
+          />
+        </button>
+      </div>
 
       {/* ============ LAYER 2 — TOP HEADER ============ */}
       <div className="absolute top-0 left-0 right-0 z-[1000] pointer-events-none">
@@ -333,7 +404,8 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           {/* Top row — menu + GPS pill */}
           <div className="flex items-center justify-between pointer-events-auto">
             <button
-              aria-label="Menu"
+              aria-label="Open route planner"
+              onClick={() => setDrawerOpen(true)}
               className="w-11 h-11 rounded-2xl flex items-center justify-center border border-white/10 backdrop-blur-xl active:scale-95 transition-all"
               style={{ background: 'rgba(10,10,10,0.55)' }}
             >
