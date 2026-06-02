@@ -646,6 +646,38 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           ))}
         </div>
       </div>
+
+      {/* Route planner drawer */}
+      <RoutePlannerDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        origin={currentPosition ? { lat: currentPosition.lat, lng: currentPosition.lng } : null}
+        onRoute={setPlannedRoute}
+        voiceEnabled={voiceEnabled}
+        onVoiceToggle={setVoiceEnabled}
+      />
+
+      {/* Planned route summary chip */}
+      {plannedRoute && (
+        <div className="absolute left-3 right-3 z-[1000] mx-auto max-w-md"
+             style={{ top: 'calc(8.5rem + env(safe-area-inset-top, 0px))' }}>
+          <div className="rounded-2xl border border-cyan-400/30 px-3 py-2 flex items-center gap-2 backdrop-blur-xl"
+               style={{ background: 'rgba(0,229,255,0.08)', boxShadow: '0 0 24px rgba(0,229,255,0.15)' }}>
+            <Navigation size={14} className="text-cyan-300 shrink-0"
+                        style={{ filter: 'drop-shadow(0 0 6px rgba(0,229,255,0.6))' }} />
+            <p className="flex-1 text-[10px] font-bold text-foreground truncate uppercase tracking-wider">
+              {plannedRoute.destinationLabel}
+            </p>
+            <span className="text-[10px] font-black text-cyan-300 tracking-wider">
+              {(plannedRoute.distanceMeters / 1000).toFixed(2)} KM
+            </span>
+            <button onClick={() => setPlannedRoute(null)}
+                    className="text-[9px] font-black text-muted-foreground hover:text-destructive uppercase tracking-wider ml-1">
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
