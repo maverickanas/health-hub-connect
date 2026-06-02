@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Square, Clock, Navigation, MapPin,
   AlertTriangle, Footprints, Bike, RotateCw, Save, Loader2,
-  Menu, Crosshair,
+  Menu, Crosshair, Compass,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
 import CharacterMarker from './CharacterMarker';
+import RoutePlannerDrawer, { RouteData } from './RoutePlannerDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
