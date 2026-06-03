@@ -319,6 +319,14 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
           </div>
         </motion.div>
       )}
+      <AvatarCropperModal
+        open={cropperOpen}
+        imageSrc={pendingImageSrc}
+        busy={isUploading}
+        onCancel={() => { if (!isUploading) { setCropperOpen(false); setPendingImageSrc(null); } }}
+        onPickAnother={() => fileInputRef.current?.click()}
+        onConfirm={handleCropConfirm}
+      />
     </AnimatePresence>
   );
 };
