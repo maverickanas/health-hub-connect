@@ -33,7 +33,7 @@ const isFilledNumber = (v: unknown): boolean => {
 };
 
 const Index = () => {
-  const { user, loading, profile, profileLoading, refetchProfile, signIn, signUp, signInAsGuest, signOut } = useAuth();
+  const { user, loading, profile, profileLoading, refetchProfile, sendEmailOtp, verifyEmailOtp, signInAsGuest, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
 
   const [isTracking, setIsTracking] = useState(false);
@@ -170,19 +170,15 @@ const Index = () => {
     }
   }, [user, dataLoaded, showOnboarding]);
 
-  const handleSignIn = async (email: string, password: string) => {
-    await signIn(email, password);
-    toast.success('Logged in successfully!');
+  const handleSendOtp = async (email: string) => {
+    await sendEmailOtp(email);
+    toast.success('Security code sent. Check your inbox.');
   };
 
-  const handleSignUp = async (email: string, password: string, name: string) => {
-    const result = await signUp(email, password, name);
-    if (result?.needsEmailConfirmation) {
-      // Surface the real backend state instead of a fake success.
-      toast.info('Check your inbox to verify your email before logging in.');
-      throw new Error('Email verification required. Please check your inbox.');
-    }
-    toast.success('Account created! Let\'s set up your profile.');
+  const handleVerifyOtp = async (email: string, code: string) => {
+    await verifyEmailOtp(email, code);
+    toast.success('Verified. Welcome to Healthy Hub.');
+    // Routing gate (profile completeness) takes over from here.
   };
 
   const handleGuestLogin = async () => {
@@ -290,7 +286,7 @@ const Index = () => {
     return (
       <>
         <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
-        <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGuestLogin={handleGuestLogin} />
+        <AuthScreen onSendOtp={handleSendOtp} onVerifyOtp={handleVerifyOtp} onGuestLogin={handleGuestLogin} />
       </>
     );
   }
@@ -331,7 +327,7 @@ const Index = () => {
       {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
-      <main className="flex-1 relative w-full overflow-hidden">
+      <main className="flex-1 relative w-full overflow-hidden pb-24">
         <AnimatePresence mode="wait">
           {currentView === ViewState.HOME && (
             <motion.div key="home" {...pageTransition} className="h-full w-full">
@@ -366,7 +362,7 @@ const Index = () => {
           )}
         </AnimatePresence>
       </main>
-      {/* <Navigation currentView={currentView} setView={setCurrentView} /> */}
+      <Navigation currentView={currentView} setView={setCurrentView} />
     </div>
   );
 };
