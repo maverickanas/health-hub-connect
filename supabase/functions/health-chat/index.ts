@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,6 +10,25 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // --- Require authenticated user ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await anonClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { messages } = body;
 
@@ -23,7 +43,6 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    // Validate each message has role and content, cap content length
     const MAX_CONTENT_LENGTH = 10000;
     for (const msg of messages) {
       if (!msg.role || typeof msg.role !== "string" || !["user", "assistant"].includes(msg.role)) {
@@ -51,7 +70,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an elite AI fitness and health coach for the Health Hub app. Your personality is motivating, knowledgeable, and supportive. You provide evidence-based advice on:
+            content: `You are an elite AI fitness and health coach for the Healthy Hub app. Your personality is motivating, knowledgeable, and supportive. You provide evidence-based advice on:
 
 - Workout plans and exercise techniques
 - Nutrition, meal planning, and macros
