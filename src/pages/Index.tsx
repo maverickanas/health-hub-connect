@@ -331,7 +331,7 @@ const Index = () => {
       {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
-      <main className="flex-1 relative w-full overflow-hidden">
+      <main className="flex-1 relative w-full overflow-hidden pb-24">
         <AnimatePresence mode="wait">
           {currentView === ViewState.HOME && (
             <motion.div key="home" {...pageTransition} className="h-full w-full">
@@ -366,7 +366,7 @@ const Index = () => {
           )}
         </AnimatePresence>
       </main>
-      {/* <Navigation currentView={currentView} setView={setCurrentView} /> */}
+      <Navigation currentView={currentView} setView={setCurrentView} />
     </div>
   );
 };
