@@ -19,7 +19,7 @@ interface FoodLensProps {
   onFoodLogged?: (calories: number, name: string) => void;
 }
 
-const FOOD_ANALYSIS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/food-analysis`;
+import { supabase } from '@/integrations/supabase/client';
 
 const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
   const [isScanning, setIsScanning] = useState(false);
@@ -72,16 +72,18 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
     if (!capturedImage) return;
     setIsScanning(true);
     try {
-      const resp = await fetch(FOOD_ANALYSIS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ image: capturedImage }),
+      const { data, error } = await supabase.functions.invoke('food-analysis', {
+        body: { image: capturedImage },
       });
-      if (resp.status === 429) { toast.error('Rate limit exceeded.'); return; }
-      if (resp.status === 402) { toast.error('AI credits exhausted.'); return; }
-      if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || 'Analysis failed'); }
-      const { analysis } = await resp.json();
-      setScanResult(analysis);
+      if (error) {
+        const ctx: any = (error as any).context;
+        const status = ctx?.status;
+        if (status === 401) { toast.error('Please sign in to use Food Lens.'); return; }
+        if (status === 429) { toast.error('Rate limit exceeded.'); return; }
+        if (status === 402) { toast.error('AI credits exhausted.'); return; }
+        throw new Error(error.message || 'Analysis failed');
+      }
+      setScanResult(data.analysis);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to analyze food');
     } finally {
