@@ -4,6 +4,7 @@ import { Send, Bot, User, Sparkles, Mic, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage } from '@/types';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`;
 
@@ -63,15 +64,26 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
     const assistantId = (Date.now() + 1).toString();
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Please sign in to chat with your coach.');
+        setIsTyping(false);
+        return;
+      }
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
         body: JSON.stringify({ messages: aiMessages }),
       });
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: 'AI unavailable' }));
-        if (resp.status === 429) toast.error('Rate limit exceeded. Wait a moment.');
+        if (resp.status === 401) toast.error('Session expired. Please sign in again.');
+        else if (resp.status === 429) toast.error('Rate limit exceeded. Wait a moment.');
         else if (resp.status === 402) toast.error('AI credits exhausted.');
         else toast.error(err.error || 'AI service error');
         setIsTyping(false);
