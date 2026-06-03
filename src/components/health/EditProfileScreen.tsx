@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { UserMetrics, Gender, ActivityLevel, FitnessGoal } from '@/types';
+import AvatarCropperModal from './AvatarCropperModal';
 
 interface EditProfileScreenProps {
   open: boolean;
@@ -30,6 +31,8 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
   const [localAvatar, setLocalAvatar] = useState<string | null>(avatarUrl);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -41,20 +44,33 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 
   const handlePickPhoto = () => fileInputRef.current?.click();
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !user) return;
+    if (!file) return;
     if (!file.type.startsWith('image/')) {
       toast.error('Please choose an image file');
       return;
     }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image too large (max 8 MB)');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingImageSrc(reader.result as string);
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropConfirm = async (blob: Blob, previewDataUrl: string) => {
+    if (!user) { toast.error('Sign in to update your photo'); return; }
     setIsUploading(true);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, {
-        upsert: true, contentType: file.type,
+      const path = `${user.id}/avatar-${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, blob, {
+        upsert: true, contentType: 'image/jpeg',
       });
       if (upErr) throw upErr;
       const { error: dbErr } = await supabase
@@ -63,9 +79,11 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
         .eq('user_id', user.id);
       if (dbErr) throw dbErr;
       const { data: signed } = await supabase.storage.from('avatars').createSignedUrl(path, 60 * 60);
-      setLocalAvatar(signed?.signedUrl ?? null);
+      setLocalAvatar(signed?.signedUrl ?? previewDataUrl);
       await refetchProfile();
       toast.success('Photo updated');
+      setCropperOpen(false);
+      setPendingImageSrc(null);
     } catch (err: any) {
       toast.error(err.message || 'Failed to upload photo');
     } finally {
