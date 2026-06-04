@@ -30,7 +30,6 @@ export type GeoWatcherId = string | number;
 
 const isNative = (): boolean => {
   try {
-    // Lazy require to avoid loading Capacitor on pure web
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Capacitor } = require('@capacitor/core');
     return Capacitor?.isNativePlatform?.() === true;
@@ -39,15 +38,18 @@ const isNative = (): boolean => {
   }
 };
 
+async function getNativePlugin(): Promise<any> {
+  const { registerPlugin } = await import('@capacitor/core');
+  return registerPlugin('BackgroundGeolocation');
+}
+
 export async function startWatch(
   onUpdate: (sample: GeoSample) => void,
   onError: (err: GeoError) => void,
 ): Promise<GeoWatcherId | null> {
   if (isNative()) {
     try {
-      const BackgroundGeolocation = (
-        await import('@capacitor-community/background-geolocation')
-      ).default;
+      const BackgroundGeolocation = await getNativePlugin();
       const id = await BackgroundGeolocation.addWatcher(
         {
           backgroundMessage: 'Tracking your workout in the background',
