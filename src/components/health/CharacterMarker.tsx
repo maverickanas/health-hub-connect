@@ -164,19 +164,10 @@ const CharacterMarker: React.FC<CharacterMarkerProps> = ({
           )}
         </div>
 
-        {/* Optional avatar face badge — MVP fallback per spec */}
-        {avatarUrl && (
-          <img
-            src={avatarUrl}
-            alt=""
-            className="absolute -top-2 -right-2 w-6 h-6 rounded-full object-cover"
-            style={{
-              border: '2px solid #CCFF00',
-              boxShadow: '0 0 8px rgba(204,255,0,0.7)',
-              transform: `rotate(${-rot}deg)`,
-            }}
-          />
-        )}
+        {/* Avatar face badge — graceful fallback to a glowing Neon Lime dot
+            if the user has no avatar, or the image fails to load (CORS, 404). */}
+        <AvatarBadge avatarUrl={avatarUrl} counterRotate={-rot} />
+
 
         {/* Direction triangle — points along bearing */}
         <div
