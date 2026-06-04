@@ -89,6 +89,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const [plannedRoute, setPlannedRoute] = useState<RouteData | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [followHeading, setFollowHeading] = useState(false);
+  const [showPermissionSheet, setShowPermissionSheet] = useState(false);
   const lastSpokenStepRef = useRef<number>(-1);
 
   const { user } = useAuth();
