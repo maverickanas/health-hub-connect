@@ -698,6 +698,22 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           </div>
         </div>
       )}
+
+      {/* On-demand location permission rationale */}
+      <LocationPermissionSheet
+        open={showPermissionSheet}
+        onClose={() => setShowPermissionSheet(false)}
+        onGranted={async () => {
+          // Triggers the OS prompt (web: getCurrentPosition; native: addWatcher).
+          try {
+            await getCurrent();
+          } catch {
+            // Even if prompt is denied, we still try to start — startGPS will surface
+            // a precise error message in the GPS error banner.
+          }
+          beginWorkout();
+        }}
+      />
     </div>
   );
 };
