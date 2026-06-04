@@ -45,9 +45,9 @@ export async function startWatch(
 ): Promise<GeoWatcherId | null> {
   if (isNative()) {
     try {
-      const BackgroundGeolocation = (await import(
-        '@capacitor-community/background-geolocation'
-      );
+      const BackgroundGeolocation = (
+        await import('@capacitor-community/background-geolocation')
+      ).default;
       const id = await BackgroundGeolocation.addWatcher(
         {
           backgroundMessage: 'Tracking your workout in the background',
