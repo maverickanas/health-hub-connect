@@ -12,6 +12,7 @@ import CharacterMarker from './CharacterMarker';
 import RoutePlannerDrawer, { RouteData } from './RoutePlannerDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { startWatch, stopWatch, getCurrent, type GeoWatcherId } from '@/lib/backgroundGeo';
 
 interface GeoPoint {
   lat: number;
