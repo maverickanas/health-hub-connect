@@ -48,6 +48,45 @@ const pickUrl = (mode: Mode, gender: Gender): string => {
 };
 
 /**
+ * Avatar face badge — shows the user's photo in a glowing Neon Lime ring.
+ * If the image fails to load (CORS, 404) or is missing, falls back to a
+ * pure-CSS glowing Neon Lime dot so the marker never shows a broken-image icon.
+ */
+const AvatarBadge: React.FC<{ avatarUrl?: string | null; counterRotate: number }> = ({
+  avatarUrl,
+  counterRotate,
+}) => {
+  const [errored, setErrored] = useState(false);
+  const showImage = !!avatarUrl && !errored;
+
+  const baseStyle: React.CSSProperties = {
+    border: '2px solid #FFFFFF',
+    boxShadow: '0 0 15px #CCFF00, 0 0 4px rgba(0,0,0,0.6)',
+    transform: `rotate(${counterRotate}deg)`,
+  };
+
+  if (showImage) {
+    return (
+      <img
+        src={avatarUrl!}
+        alt=""
+        onError={() => setErrored(true)}
+        className="absolute -top-2 -right-2 w-6 h-6 rounded-full object-cover bg-[#CCFF00]"
+        style={baseStyle}
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#CCFF00]"
+      style={baseStyle}
+    />
+  );
+};
+
+/**
  * CharacterMarker — overlays an animated Lottie character at the user's GPS
  * coordinate on top of the Leaflet map canvas. Rotates with travel bearing,
  * pulses a Neon Lime aura, and falls back to an animated emoji if the Lottie
@@ -164,19 +203,10 @@ const CharacterMarker: React.FC<CharacterMarkerProps> = ({
           )}
         </div>
 
-        {/* Optional avatar face badge — MVP fallback per spec */}
-        {avatarUrl && (
-          <img
-            src={avatarUrl}
-            alt=""
-            className="absolute -top-2 -right-2 w-6 h-6 rounded-full object-cover"
-            style={{
-              border: '2px solid #CCFF00',
-              boxShadow: '0 0 8px rgba(204,255,0,0.7)',
-              transform: `rotate(${-rot}deg)`,
-            }}
-          />
-        )}
+        {/* Avatar face badge — graceful fallback to a glowing Neon Lime dot
+            if the user has no avatar, or the image fails to load (CORS, 404). */}
+        <AvatarBadge avatarUrl={avatarUrl} counterRotate={-rot} />
+
 
         {/* Direction triangle — points along bearing */}
         <div

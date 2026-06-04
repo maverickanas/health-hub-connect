@@ -13,6 +13,7 @@ import RoutePlannerDrawer, { RouteData } from './RoutePlannerDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { startWatch, stopWatch, getCurrent, type GeoWatcherId } from '@/lib/backgroundGeo';
+import LocationPermissionSheet from './LocationPermissionSheet';
 
 interface GeoPoint {
   lat: number;
@@ -88,6 +89,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const [plannedRoute, setPlannedRoute] = useState<RouteData | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [followHeading, setFollowHeading] = useState(false);
+  const [showPermissionSheet, setShowPermissionSheet] = useState(false);
   const lastSpokenStepRef = useRef<number>(-1);
 
   const { user } = useAuth();
@@ -193,10 +195,26 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   }, []);
 
-  const handleStart = () => {
+  const beginWorkout = () => {
     setWorkoutState('active');
     setElapsed(0); setDistance(0); setPoints([]); lastPointRef.current = null;
     startGPS(); startTimer();
+  };
+
+  const handleStart = () => {
+    // Show the in-app rationale BEFORE we trigger the OS prompt. If the user
+    // has already granted location, the sheet still confirms intent in 1 tap.
+    if (typeof navigator !== 'undefined' && 'permissions' in navigator) {
+      (navigator.permissions as any)
+        .query({ name: 'geolocation' })
+        .then((res: PermissionStatus) => {
+          if (res.state === 'granted') beginWorkout();
+          else setShowPermissionSheet(true);
+        })
+        .catch(() => setShowPermissionSheet(true));
+    } else {
+      setShowPermissionSheet(true);
+    }
   };
 
   const handlePause = () => { setWorkoutState('paused'); stopTimer(); };
@@ -680,6 +698,22 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
           </div>
         </div>
       )}
+
+      {/* On-demand location permission rationale */}
+      <LocationPermissionSheet
+        open={showPermissionSheet}
+        onClose={() => setShowPermissionSheet(false)}
+        onGranted={async () => {
+          // Triggers the OS prompt (web: getCurrentPosition; native: addWatcher).
+          try {
+            await getCurrent();
+          } catch {
+            // Even if prompt is denied, we still try to start — startGPS will surface
+            // a precise error message in the GPS error banner.
+          }
+          beginWorkout();
+        }}
+      />
     </div>
   );
 };

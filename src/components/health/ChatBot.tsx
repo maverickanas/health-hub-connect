@@ -156,10 +156,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
                 {msg.role === 'user' ? <User size={14} className="text-primary" /> : <Bot size={14} className="text-primary" />}
               </div>
               <div className="max-w-[80%] space-y-2">
-                <div className={`p-4 rounded-3xl text-sm leading-relaxed ${
+                <div className={`p-4 text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-primary/10 border border-primary/15 text-foreground'
-                    : 'glass-card rounded-3xl text-foreground/90'
+                    ? 'bg-primary/10 border border-primary/15 text-foreground rounded-3xl'
+                    : 'bg-white/10 backdrop-blur-md border border-white/10 text-foreground/95 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.35)]'
                 }`}>
                   <div className="prose prose-sm prose-invert max-w-none [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:text-primary [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
                     <ReactMarkdown>{msg.text}</ReactMarkdown>
@@ -199,15 +199,25 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
       <div className="p-4 pb-24 bg-background/80 backdrop-blur-xl">
         <div className="flex gap-2 items-center">
           <div className="flex-1 relative">
-            <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Ask your AI coach..."
-              className="w-full bg-muted border border-border rounded-2xl px-4 py-3 pr-10 text-sm text-foreground outline-none focus:border-primary/30 placeholder:text-muted-foreground transition-colors" />
-            <Mic size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              className="w-full bg-white/[0.06] border border-white/10 rounded-2xl px-4 py-3 pr-10 text-sm text-white outline-none focus:border-[#CCFF00]/50 focus:bg-white/[0.08] placeholder:text-gray-400 transition-colors"
+            />
+            <Mic size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={handleSend} disabled={!input.trim() || isTyping}
-            className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-30 shadow-[0_0_15px_rgba(204,255,0,0.2)]">
-            <Send size={16} />
+          <motion.button
+            whileTap={{ scale: 0.88 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={handleSend}
+            disabled={!input.trim() || isTyping}
+            aria-label="Send message"
+            className="w-11 h-11 rounded-2xl bg-[#CCFF00] text-black flex items-center justify-center disabled:opacity-30 disabled:shadow-none shadow-[0_0_22px_rgba(204,255,0,0.45)] transition-all active:shadow-[0_0_12px_rgba(204,255,0,0.6)]"
+          >
+            <Send size={16} strokeWidth={2.5} />
           </motion.button>
         </div>
       </div>

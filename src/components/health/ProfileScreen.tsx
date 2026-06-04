@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, LogOut, Ruler, Weight, Calendar, Activity, Pencil, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { User, LogOut, Ruler, Weight, Calendar, Activity, Pencil, Loader2, Trash2, AlertTriangle, Percent } from 'lucide-react';
 import { UserMetrics } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -121,11 +121,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
 
   const bmi = metrics.height > 0 ? (metrics.weight / ((metrics.height / 100) ** 2)).toFixed(1) : '0';
 
+  // Derive body-fat estimate via BMI when no explicit measurement is stored.
+  // (Deurenberg formula — rough but good enough for a placeholder badge.)
+  const bmiNum = parseFloat(bmi);
+  const bodyFatEstimate = Number.isFinite(bmiNum) && bmiNum > 0
+    ? Math.max(
+        5,
+        Math.round(
+          1.20 * bmiNum + 0.23 * (metrics.age || 25) - (metrics.gender === 'Female' ? 5.4 : 16.2),
+        ),
+      )
+    : null;
+
   const statCards = [
-    { icon: Weight, label: 'MASS', value: `${metrics.weight} KG`, color: 'text-primary' },
-    { icon: Ruler, label: 'HEIGHT', value: `${metrics.height} CM`, color: 'text-blue-400' },
-    { icon: Calendar, label: 'AGE', value: `${metrics.age || 25} YRS`, color: 'text-amber-400' },
-    { icon: Activity, label: 'ACTIVITY', value: metrics.activityLevel || 'Lightly Active', color: 'text-cyan-400' },
+    {
+      icon: Weight,
+      label: 'Current Weight',
+      value: `${metrics.weight}`,
+      unit: 'KG',
+      tint: 'text-[#CCFF00]',
+      iconBg: 'bg-[#CCFF00]/10',
+      ring: 'hover:shadow-[0_0_30px_rgba(204,255,0,0.25)] hover:border-[#CCFF00]/30',
+    },
+    {
+      icon: Percent,
+      label: 'Body Fat',
+      value: bodyFatEstimate != null ? `${bodyFatEstimate}` : '15',
+      unit: '%',
+      tint: 'text-blue-400',
+      iconBg: 'bg-blue-400/10',
+      ring: 'hover:shadow-[0_0_30px_rgba(96,165,250,0.25)] hover:border-blue-400/30',
+    },
+    {
+      icon: Ruler,
+      label: 'Height',
+      value: `${metrics.height}`,
+      unit: 'CM',
+      tint: 'text-amber-400',
+      iconBg: 'bg-amber-400/10',
+      ring: 'hover:shadow-[0_0_30px_rgba(251,191,36,0.22)] hover:border-amber-400/30',
+    },
+    {
+      icon: Calendar,
+      label: 'Age',
+      value: `${metrics.age || 25}`,
+      unit: 'YRS',
+      tint: 'text-cyan-400',
+      iconBg: 'bg-cyan-400/10',
+      ring: 'hover:shadow-[0_0_30px_rgba(34,211,238,0.22)] hover:border-cyan-400/30',
+    },
   ];
 
   return (
@@ -161,16 +205,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
 
         <div className="w-full max-w-sm grid grid-cols-2 gap-3">
           {statCards.map((card, i) => (
-            <motion.div key={card.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i }}
-              className="glass-panel p-5 rounded-3xl flex flex-col items-center justify-center text-center space-y-3 aspect-square">
-              <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center">
-                <card.icon size={20} className={card.color} />
+            <motion.button
+              type="button"
+              key={card.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 * i }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setIsEditing(true)}
+              className={`glass-panel p-4 rounded-3xl flex flex-col items-start text-left justify-between aspect-square border border-white/[0.06] transition-all duration-300 cursor-pointer ${card.ring}`}
+            >
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${card.iconBg}`}>
+                <card.icon size={18} className={card.tint} strokeWidth={2.2} />
               </div>
-              <div>
-                <p className="text-[8px] font-extrabold text-muted-foreground uppercase tracking-[0.15em]">{card.label}</p>
-                <p className="text-base font-black text-foreground mt-1">{card.value}</p>
+              <div className="w-full">
+                <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-[0.2em]">
+                  {card.label}
+                </p>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <p className={`text-3xl font-black leading-none ${card.tint}`}>{card.value}</p>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                    {card.unit}
+                  </span>
+                </div>
               </div>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
 
