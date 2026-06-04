@@ -103,7 +103,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
     return () => { cancelled = true; };
   }, [user]);
 
-  const watchIdRef = useRef<number | null>(null);
+  const watchIdRef = useRef<GeoWatcherId | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPointRef = useRef<GeoPoint | null>(null);
   const isPausedRef = useRef(false);
@@ -128,20 +128,19 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const startGPS = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGpsError('GPS not available on this device');
-      toast.error('GPS not supported by your browser');
-      return;
-    }
+  const startGPS = useCallback(async () => {
     setGpsError(null);
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const point: GeoPoint = { lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp };
+    const id = await startWatch(
+      (sample) => {
+        const point: GeoPoint = {
+          lat: sample.latitude,
+          lng: sample.longitude,
+          timestamp: sample.timestamp,
+        };
         setCurrentPosition(point);
 
         // Capture device heading if available; otherwise derive bearing from last point.
-        const devHeading = pos.coords.heading;
+        const devHeading = sample.heading;
         if (typeof devHeading === 'number' && !Number.isNaN(devHeading)) {
           setBearing(devHeading);
         } else if (lastPointRef.current) {
@@ -154,8 +153,8 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
             const d = haversineDistance(lastPointRef.current, point);
             const maxJump = activityMode === 'cycling' ? 1.5 : 0.5;
             if (d > 0.003 && d < maxJump) {
-              setDistance(prev => prev + d);
-              setPoints(prev => [...prev, point]);
+              setDistance((prev) => prev + d);
+              setPoints((prev) => [...prev, point]);
             }
           } else {
             setPoints([point]);
@@ -164,16 +163,26 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         }
       },
       (err) => {
-        if (err.code === 1) { setGpsError('Location access denied. Please enable GPS.'); toast.error('Please allow location access'); }
-        else if (err.code === 2) { setGpsError('GPS unavailable'); }
-        else { setGpsError('GPS timeout — move to open area'); }
+        if (err.code === 'permission') {
+          setGpsError('Location access denied. Please enable GPS.');
+          toast.error('Please allow location access');
+        } else if (err.code === 'unavailable') {
+          setGpsError('GPS unavailable');
+        } else if (err.code === 'timeout') {
+          setGpsError('GPS timeout — move to open area');
+        } else {
+          setGpsError(err.message || 'GPS error');
+        }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     );
+    watchIdRef.current = id;
   }, [activityMode]);
 
-  const stopGPS = useCallback(() => {
-    if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+  const stopGPS = useCallback(async () => {
+    if (watchIdRef.current !== null) {
+      await stopWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
   }, []);
 
   const startTimer = useCallback(() => {
@@ -227,24 +236,16 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
 
   useEffect(() => () => { stopGPS(); stopTimer(); }, [stopGPS, stopTimer]);
 
-  const checkGeolocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGpsError('GPS not available on this device');
-      return;
+  const checkGeolocation = useCallback(async () => {
+    try {
+      const sample = await getCurrent();
+      setCurrentPosition({ lat: sample.latitude, lng: sample.longitude, timestamp: sample.timestamp });
+      setGpsError(null);
+    } catch (err: any) {
+      if (err?.code === 'permission') setGpsError('Location access denied. Please enable GPS.');
+      else if (err?.code === 'unavailable') setGpsError('GPS unavailable');
+      else setGpsError('GPS timeout — move to open area');
     }
-    setGpsError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude, timestamp: pos.timestamp });
-        setGpsError(null);
-      },
-      (err) => {
-        if (err.code === 1) setGpsError('Location access denied. Please enable GPS.');
-        else if (err.code === 2) setGpsError('GPS unavailable');
-        else setGpsError('GPS timeout — move to open area');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-    );
   }, []);
 
   const handleRetryGPS = useCallback(() => {
