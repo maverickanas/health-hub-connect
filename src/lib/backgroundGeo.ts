@@ -113,9 +113,9 @@ export async function stopWatch(id: GeoWatcherId | null): Promise<void> {
   if (id == null) return;
   if (isNative()) {
     try {
-      const BackgroundGeolocation = (await import(
-        '@capacitor-community/background-geolocation'
-      );
+      const BackgroundGeolocation = (
+        await import('@capacitor-community/background-geolocation')
+      ).default;
       await BackgroundGeolocation.removeWatcher({ id: String(id) });
     } catch {
       /* noop */
