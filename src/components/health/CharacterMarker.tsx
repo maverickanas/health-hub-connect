@@ -48,6 +48,45 @@ const pickUrl = (mode: Mode, gender: Gender): string => {
 };
 
 /**
+ * Avatar face badge — shows the user's photo in a glowing Neon Lime ring.
+ * If the image fails to load (CORS, 404) or is missing, falls back to a
+ * pure-CSS glowing Neon Lime dot so the marker never shows a broken-image icon.
+ */
+const AvatarBadge: React.FC<{ avatarUrl?: string | null; counterRotate: number }> = ({
+  avatarUrl,
+  counterRotate,
+}) => {
+  const [errored, setErrored] = useState(false);
+  const showImage = !!avatarUrl && !errored;
+
+  const baseStyle: React.CSSProperties = {
+    border: '2px solid #FFFFFF',
+    boxShadow: '0 0 15px #CCFF00, 0 0 4px rgba(0,0,0,0.6)',
+    transform: `rotate(${counterRotate}deg)`,
+  };
+
+  if (showImage) {
+    return (
+      <img
+        src={avatarUrl!}
+        alt=""
+        onError={() => setErrored(true)}
+        className="absolute -top-2 -right-2 w-6 h-6 rounded-full object-cover bg-[#CCFF00]"
+        style={baseStyle}
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#CCFF00]"
+      style={baseStyle}
+    />
+  );
+};
+
+/**
  * CharacterMarker — overlays an animated Lottie character at the user's GPS
  * coordinate on top of the Leaflet map canvas. Rotates with travel bearing,
  * pulses a Neon Lime aura, and falls back to an animated emoji if the Lottie
