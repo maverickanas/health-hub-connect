@@ -128,17 +128,51 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
     <div className="h-full w-full relative bg-black overflow-hidden">
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="absolute inset-0">
-        {cameraActive && <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />}
-        {capturedImage && !cameraActive && <img src={capturedImage} alt="Captured food" className="w-full h-full object-cover" />}
+      {/* Layer 0 — camera / captured photo / animated placeholder */}
+      <div className="absolute inset-0 z-0">
+        {cameraActive && (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          />
+        )}
+        {capturedImage && !cameraActive && (
+          <img
+            src={capturedImage}
+            alt="Captured food"
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          />
+        )}
         {!cameraActive && !capturedImage && (
-          <div className="w-full h-full bg-gradient-to-b from-black/20 via-black/60 to-black/90 flex items-center justify-center">
-            <ImageIcon size={64} className="text-muted-foreground/30" />
+          <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+            {/* Pre-camera gradient field so the screen never looks "broken / empty" */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(120% 80% at 50% 20%, rgba(204,255,0,0.08) 0%, rgba(10,10,10,1) 55%, #050505 100%)',
+              }}
+            />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-8">
+              <motion.div
+                animate={{ scale: [1, 1.06, 1], opacity: [0.6, 1, 0.6] }}
+                transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+                className="w-20 h-20 rounded-3xl bg-[#CCFF00]/10 border border-[#CCFF00]/30 flex items-center justify-center shadow-[0_0_40px_rgba(204,255,0,0.25)]"
+              >
+                <Camera size={32} className="text-[#CCFF00]" />
+              </motion.div>
+              <p className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.3em]">
+                Camera Standing By
+              </p>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80 pointer-events-none z-[1]" />
 
       {(cameraActive || capturedImage) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
