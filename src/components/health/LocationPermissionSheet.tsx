@@ -87,7 +87,7 @@ const LocationPermissionSheet: React.FC<LocationPermissionSheetProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[3000] bg-[#0A0A0A]/95 backdrop-blur-xl flex flex-col items-stretch sm:items-center sm:justify-center p-0 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 z-[3000] bg-[#0A0A0A]/95 backdrop-blur-xl flex flex-col justify-end items-stretch sm:items-center sm:justify-center p-0 sm:p-6 overflow-y-auto"
           onClick={(e) => e.target === e.currentTarget && onClose()}
         >
           {/* Solid backdrop to fully occlude the map + header underneath */}
