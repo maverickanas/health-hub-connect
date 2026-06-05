@@ -196,7 +196,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
         )}
       </div>
 
-      <div className="p-4 pb-24 bg-background/80 backdrop-blur-xl">
+      <div className="px-4 pt-3 pb-3 bg-background/80 backdrop-blur-xl border-t border-white/5">
         <div className="flex gap-2 items-center">
           <div className="flex-1 relative">
             <input

@@ -218,7 +218,7 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
         <AnimatePresence mode="wait">
           {scanResult ? (
             <motion.div key="result" initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
-              className="glass-panel mx-4 mb-24 rounded-3xl p-5 space-y-4">
+              className="glass-panel mx-3 mb-2 rounded-3xl p-5 space-y-4">
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[9px] font-extrabold text-primary uppercase tracking-[0.2em]">Analysis Complete</p>
@@ -266,7 +266,7 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
             </motion.div>
           ) : (
             <motion.div key="controls" initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
-              className="glass-panel mx-4 mb-24 rounded-3xl p-6 space-y-4">
+              className="glass-panel mx-3 mb-2 rounded-3xl p-5 space-y-3">
               <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-[0.2em] text-center">
                 {capturedImage ? 'Photo Captured — Ready to Analyze' : 'Point Camera at Your Meal'}
               </p>
