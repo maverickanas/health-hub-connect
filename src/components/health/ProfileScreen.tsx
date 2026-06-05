@@ -111,7 +111,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
       }
     };
     loadProfile();
-  }, [user]);
+    // Re-run whenever the shared auth profile changes (e.g. after Edit Profile save).
+  }, [user, profile?.display_name, profile?.height, profile?.weight, profile?.age, profile?.avatar_url]);
+
 
   // Save is handled inside <EditProfileScreen/>; this just syncs local state on close.
   const handleSaved = (next: { displayName: string; metrics: UserMetrics }) => {
