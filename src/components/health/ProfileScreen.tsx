@@ -111,7 +111,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
       }
     };
     loadProfile();
-  }, [user]);
+    // Re-run whenever the shared auth profile changes (e.g. after Edit Profile save).
+  }, [user, profile?.display_name, profile?.height, profile?.weight, profile?.age, profile?.avatar_url]);
+
 
   // Save is handled inside <EditProfileScreen/>; this just syncs local state on close.
   const handleSaved = (next: { displayName: string; metrics: UserMetrics }) => {
@@ -181,8 +183,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
         </div>
 
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          className="w-28 h-28 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center shadow-[0_0_40px_rgba(204,255,0,0.1)]">
-          <User size={48} className="text-primary" />
+          className="w-28 h-28 rounded-full overflow-hidden bg-primary/10 border-2 border-[#CCFF00] flex items-center justify-center shadow-[0_0_40px_rgba(204,255,0,0.18)]">
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt="User Avatar"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          ) : (
+            <User size={48} className="text-[#CCFF00]" />
+          )}
         </motion.div>
 
         <div className="text-center space-y-1.5">
