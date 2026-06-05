@@ -214,37 +214,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ userName, email, onLogout
           <Pencil size={12} /> Update Identity
         </motion.button>
 
-        <div className="w-full max-w-sm grid grid-cols-2 gap-3">
-          {statCards.map((card, i) => (
-            <motion.button
-              type="button"
-              key={card.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * i }}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setIsEditing(true)}
-              className={`glass-panel p-4 rounded-3xl flex flex-col items-start text-left justify-between aspect-square border border-white/[0.06] transition-all duration-300 cursor-pointer ${card.ring}`}
-            >
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${card.iconBg}`}>
-                <card.icon size={18} className={card.tint} strokeWidth={2.2} />
-              </div>
-              <div className="w-full">
-                <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-[0.2em]">
-                  {card.label}
-                </p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <p className={`text-3xl font-black leading-none ${card.tint}`}>{card.value}</p>
-                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
-                    {card.unit}
-                  </span>
-                </div>
-              </div>
-            </motion.button>
-          ))}
-        </div>
-
         {/* Goal Sliders */}
         <GoalSliders
           stepGoal={stepGoal}
