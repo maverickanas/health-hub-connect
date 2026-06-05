@@ -20,10 +20,11 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, setView }) => {
   return (
     <nav
       className="fixed bottom-0 left-0 w-full z-[100] bg-[#0A0A0A]/90 backdrop-blur-lg border-t border-white/5"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Primary"
     >
-      <div className="flex justify-around items-center h-16 px-2">
+      {/* Inner container: internal safe-area padding keeps the glassmorphic bg
+          extending fully to the bottom edge while icons clear the iOS home indicator. */}
+      <div className="flex justify-around items-end h-16 px-2 pb-[env(safe-area-inset-bottom,0px)]">
         {NAV_ITEMS.map(({ view, icon: Icon, label }) => {
           const isActive = currentView === view;
           return (
@@ -51,7 +52,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, setView }) => {
               {isActive && (
                 <motion.span
                   layoutId="nav-active-dot"
-                  className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-[#CCFF00] shadow-[0_0_8px_#CCFF00]"
+                  className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[#CCFF00] shadow-[0_0_8px_#CCFF00]"
                   transition={{ type: 'spring', stiffness: 320, damping: 28 }}
                 />
               )}
