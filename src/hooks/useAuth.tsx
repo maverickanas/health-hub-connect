@@ -134,24 +134,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [loadProfile]);
 
-  const sendEmailOtp = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
+  const signInWithPassword = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signUpWithPassword = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({
       email,
-      options: {
-        // Create the auth user on first OTP request (passwordless flow).
-        shouldCreateUser: true,
-        emailRedirectTo: window.location.origin,
-      },
+      password,
+      options: { emailRedirectTo: window.location.origin },
     });
     if (error) throw error;
   };
 
-  const verifyEmailOtp = async (email: string, token: string) => {
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'email',
-    });
+  const verifySignupOtp = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
     if (error) throw error;
   };
 
@@ -166,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, profile, profileLoading, refetchProfile, sendEmailOtp, verifyEmailOtp, signInAsGuest, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, profile, profileLoading, refetchProfile, signInWithPassword, signUpWithPassword, verifySignupOtp, signInAsGuest, signOut }}>
       {children}
     </AuthContext.Provider>
   );
