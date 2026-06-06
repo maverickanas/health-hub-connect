@@ -275,7 +275,7 @@ const Index = () => {
     return (
       <>
         <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
-        <AuthScreen onSendOtp={handleSendOtp} onVerifyOtp={handleVerifyOtp} onGuestLogin={handleGuestLogin} />
+        <AuthScreen onGuestLogin={handleGuestLogin} />
       </>
     );
   }
