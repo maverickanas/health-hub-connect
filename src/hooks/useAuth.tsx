@@ -17,10 +17,12 @@ interface AuthContextValue {
   profile: AuthProfile | null;
   profileLoading: boolean;
   refetchProfile: () => Promise<AuthProfile | null>;
-  /** Sends a 6-digit email OTP (Supabase signInWithOtp). */
-  sendEmailOtp: (email: string) => Promise<void>;
-  /** Verifies the 6-digit email OTP and creates a session. */
-  verifyEmailOtp: (email: string, token: string) => Promise<void>;
+  /** Email + password login. */
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  /** Create account with email + password. Triggers signup confirmation OTP email. */
+  signUpWithPassword: (email: string, password: string) => Promise<void>;
+  /** Verify the 6-digit signup confirmation OTP. */
+  verifySignupOtp: (email: string, token: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 }
