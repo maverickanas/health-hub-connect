@@ -170,17 +170,6 @@ const Index = () => {
     }
   }, [user, dataLoaded, showOnboarding]);
 
-  const handleSendOtp = async (email: string) => {
-    await sendEmailOtp(email);
-    toast.success('Security code sent. Check your inbox.');
-  };
-
-  const handleVerifyOtp = async (email: string, code: string) => {
-    await verifyEmailOtp(email, code);
-    toast.success('Verified. Welcome to Healthy Hub.');
-    // Routing gate (profile completeness) takes over from here.
-  };
-
   const handleGuestLogin = async () => {
     await signInAsGuest();
     toast.success('Guest protocol initialized.');
