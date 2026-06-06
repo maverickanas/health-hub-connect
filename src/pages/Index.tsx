@@ -33,7 +33,7 @@ const isFilledNumber = (v: unknown): boolean => {
 };
 
 const Index = () => {
-  const { user, loading, profile, profileLoading, refetchProfile, sendEmailOtp, verifyEmailOtp, signInAsGuest, signOut } = useAuth();
+  const { user, loading, profile, profileLoading, refetchProfile, signInAsGuest, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
 
   const [isTracking, setIsTracking] = useState(false);
