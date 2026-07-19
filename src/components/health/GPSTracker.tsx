@@ -84,7 +84,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [bearing, setBearing] = useState<number>(0);
-  const [profileBits, setProfileBits] = useState<{ gender?: string | null; avatar_url?: string | null }>({});
+  const [profileBits, setProfileBits] = useState<{ gender?: string | null; avatar_url?: string | null; height?: number | null; weight?: number | null; age?: number | null }>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [plannedRoute, setPlannedRoute] = useState<RouteData | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -98,10 +98,10 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
     let cancelled = false;
     supabase
       .from('profiles')
-      .select('gender, avatar_url')
+      .select('gender, avatar_url, height, weight, age')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => { if (!cancelled && data) setProfileBits(data); });
+      .then(({ data }) => { if (!cancelled && data) setProfileBits(data as any); });
     return () => { cancelled = true; };
   }, [user]);
 
