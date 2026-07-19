@@ -130,6 +130,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     toast.success('New chat started');
   };
 
+  const deleteChat = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const prev = sessions;
+    // Optimistic remove
+    setSessions(s => s.filter(x => x.id !== sessionId));
+    // Delete messages first, then conversation (works with or without cascade)
+    const { error: msgErr } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('conversation_id', sessionId);
+    const { error: convErr } = await supabase
+      .from('chat_conversations')
+      .delete()
+      .eq('id', sessionId);
+    if (msgErr || convErr) {
+      console.error(msgErr || convErr);
+      toast.error('Failed to delete chat');
+      setSessions(prev); // rollback
+      return;
+    }
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(null);
+      setMessages([{ ...WELCOME, timestamp: Date.now() }]);
+    }
+    toast.success('Chat deleted');
+  };
+
+
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
