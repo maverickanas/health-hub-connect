@@ -25,6 +25,7 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<FoodAnalysis | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [showManualLog, setShowManualLog] = useState(false);
@@ -35,26 +36,52 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const attachStream = useCallback((stream: MediaStream) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = stream;
+    const tryPlay = () => {
+      video.play().catch(() => {
+        // Autoplay may fail silently; onPlay handler will still fire once user gestures or metadata loads.
+      });
+    };
+    if (video.readyState >= 1) tryPlay();
+    else video.onloadedmetadata = () => tryPlay();
+  }, []);
+
   const startCamera = useCallback(async () => {
     try {
+      setIsInitializing(true);
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraActive(true);
+      // Wait a tick for the <video> element to mount before attaching the stream.
+      requestAnimationFrame(() => attachStream(stream));
     } catch {
+      setIsInitializing(false);
       toast.error('Camera access denied. Please allow camera permissions.');
     }
-  }, [facingMode]);
+  }, [facingMode, attachStream]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (videoRef.current) videoRef.current.srcObject = null;
     setCameraActive(false);
+    setIsInitializing(false);
   }, []);
 
-  useEffect(() => { return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); }; }, []);
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, []);
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
