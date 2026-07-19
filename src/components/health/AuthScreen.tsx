@@ -59,6 +59,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
   const anyBusy = busy || googleBusy;
 
+  const pwChecks = [
+    { key: 'len', label: '8+ characters', ok: password.length >= 8 },
+    { key: 'upper', label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
+    { key: 'lower', label: 'Lowercase letter', ok: /[a-z]/.test(password) },
+    { key: 'num', label: 'Number', ok: /\d/.test(password) },
+    { key: 'special', label: 'Special (!@#$%^&*)', ok: /[!@#$%^&*]/.test(password) },
+  ];
+  const allPwValid = pwChecks.every((c) => c.ok);
+  const emailValid = isValidEmail(email);
+  const signupDisabled = mode === 'signup' && (!allPwValid || !emailValid);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldError(null);
