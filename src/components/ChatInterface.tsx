@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { Send, Bot, User, MessageSquarePlus, Sparkles, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +22,16 @@ const WELCOME: ChatInterfaceMessage = {
   timestamp: Date.now(),
 };
 
-const ChatInterface: React.FC = () => {
+interface ChatInterfaceProps {
+  onAcceptPlan?: (dailyCalories: number) => void;
+}
+
+const extractCalorieTarget = (text: string): number | null => {
+  const match = text.match(/(\d{3,4})\s*(?:kcal|calories|cal)\s*(?:per day|daily|\/day)?/i);
+  return match ? parseInt(match[1]) : null;
+};
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [messages, setMessages] = useState<ChatInterfaceMessage[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -191,18 +200,34 @@ const ChatInterface: React.FC = () => {
                   ? <User size={14} className="text-[#CCFF00]" />
                   : <Bot size={14} className="text-[#CCFF00]" />}
               </div>
-              <div className={
-                msg.role === 'user'
-                  ? 'bg-[#CCFF00] text-black p-3 rounded-2xl rounded-tr-sm max-w-[85%] font-medium text-sm self-end'
-                  : 'bg-[#1A1A1A] border border-white/5 text-white p-3 rounded-2xl rounded-tl-sm max-w-[85%] text-sm self-start'
-              }>
-                <div className={`prose prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 ${
+              <div className="flex flex-col gap-2 max-w-[85%]">
+                <div className={
                   msg.role === 'user'
-                    ? '[&_*]:text-black [&_strong]:text-black'
-                    : 'prose-invert [&_strong]:text-[#CCFF00]'
-                }`}>
-                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    ? 'bg-[#CCFF00] text-black p-3 rounded-2xl rounded-tr-sm font-medium text-sm self-end'
+                    : 'bg-[#1A1A1A] border border-white/5 text-white p-3 rounded-2xl rounded-tl-sm text-sm self-start'
+                }>
+                  <div className={`prose prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 ${
+                    msg.role === 'user'
+                      ? '[&_*]:text-black [&_strong]:text-black'
+                      : 'prose-invert [&_strong]:text-[#CCFF00]'
+                  }`}>
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
                 </div>
+                {msg.role === 'model' && msg.id !== 'welcome' && onAcceptPlan && extractCalorieTarget(msg.text) && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      const t = extractCalorieTarget(msg.text);
+                      if (t) { onAcceptPlan(t); toast.success(`Target synchronized — ${t} kcal/day`); }
+                    }}
+                    className="self-start px-4 py-2 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 text-[#CCFF00] text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 hover:bg-[#CCFF00]/15 transition-colors"
+                  >
+                    <Check size={12} /> Accept Plan
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           ))}
