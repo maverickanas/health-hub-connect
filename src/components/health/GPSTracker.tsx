@@ -595,11 +595,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
               className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-2"
               style={{ background: 'rgba(24,24,27,0.55)' }}
             >
-              <m.Icon
-                size={12}
-                className="text-primary mb-1"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.45))' }}
-              />
+              <m.Icon size={12} className="text-primary mb-1" />
               <AnimatePresence mode="wait">
                 <motion.p
                   key={m.value}
