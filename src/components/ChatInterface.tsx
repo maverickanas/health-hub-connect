@@ -4,6 +4,7 @@ import { Send, Bot, User, MessageSquarePlus, Sparkles, Check, Menu, X, Loader2, 
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import ChatDeletedToast from './ChatDeletedToast';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`;
 
