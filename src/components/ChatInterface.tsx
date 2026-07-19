@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, MessageSquarePlus, Sparkles, Check, Menu, X, Loader2, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, MessageSquarePlus, Sparkles, Check, Menu, X, Loader2, MessageSquare, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
