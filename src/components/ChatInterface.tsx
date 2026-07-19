@@ -414,15 +414,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
           </AnimatePresence>
           )}
 
-          {isTyping && messages[messages.length - 1]?.role !== 'model' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2.5">
+          {isTyping && !messages.some(m => m.id === streamingId) && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2.5" aria-live="polite">
               <div className="w-8 h-8 rounded-xl bg-[#1A1A1A] border border-white/5 flex items-center justify-center">
                 <Sparkles size={14} className="text-[#CCFF00] animate-pulse" />
               </div>
-              <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl rounded-tl-sm p-4 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2.5">
+                <span className="text-xs text-zinc-400 font-medium tracking-wide">AI is thinking</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
               </div>
             </motion.div>
           )}
