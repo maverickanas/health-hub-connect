@@ -43,6 +43,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
   const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const passwordRef = useRef<HTMLInputElement>(null);
+
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
   const anyBusy = busy || googleBusy;
 
@@ -57,7 +59,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
       if (mode === 'signup') await onSignUp(em, password);
       else await onSignIn(em, password);
     } catch (err: any) {
-      setError(err?.message || 'Authentication failed.');
+      // Smart auto-switch: signing up with an existing email flips to Log In,
+      // preserves the email, and focuses the password field.
+      if (mode === 'signup' && isAlreadyRegistered(err)) {
+        toast.info('Account already exists. Please log in.');
+        setMode('login');
+        setPassword('');
+        setError(null);
+        setTimeout(() => passwordRef.current?.focus(), 60);
+      } else {
+        setError(err?.message || 'Authentication failed.');
+      }
     } finally {
       setBusy(false);
     }
