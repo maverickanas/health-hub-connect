@@ -198,11 +198,40 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
               )}
             </div>
 
+              {fieldError?.field === 'password' && (
+                <span className="absolute -bottom-4 left-2 text-[10px] text-red-500 font-semibold tracking-wide">
+                  {fieldError.msg}
+                </span>
+              )}
+            </div>
+
+            {mode === 'signup' && (
+              <motion.ul
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 pl-1"
+              >
+                {pwChecks.map((c) => (
+                  <li
+                    key={c.key}
+                    className={`flex items-center gap-1.5 text-xs transition-colors ${
+                      c.ok ? 'text-[#CCFF00]' : 'text-zinc-500'
+                    }`}
+                  >
+                    {c.ok ? <Check size={12} strokeWidth={3} /> : <Circle size={10} strokeWidth={2} />}
+                    <span className="tracking-tight">{c.label}</span>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+
             <motion.button
               type="submit"
-              disabled={anyBusy}
+              disabled={anyBusy || signupDisabled}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 bg-[#CCFF00] text-black rounded-xl font-black uppercase tracking-[0.28em] text-xs flex items-center justify-center gap-2 disabled:opacity-60 mt-2"
+              className={`w-full h-12 bg-[#CCFF00] text-black rounded-xl font-black uppercase tracking-[0.28em] text-xs flex items-center justify-center gap-2 mt-2 ${
+                signupDisabled ? 'opacity-50 cursor-not-allowed' : 'disabled:opacity-60'
+              }`}
             >
               {busy
                 ? <><Loader2 className="animate-spin" size={16} /> {mode === 'signup' ? 'Creating…' : 'Signing In…'}</>
