@@ -242,13 +242,34 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     if (error) console.error('auto-title update failed', error);
   };
 
-  const persistMessage = async (sessionId: string, role: 'user' | 'model', content: string) => {
-    if (!userId) return;
+  const persistMessage = async (
+    sessionId: string,
+    role: 'user' | 'model',
+    content: string,
+  ): Promise<boolean> => {
+    if (!userId) {
+      console.error('[persistMessage] no userId; cannot insert', { role, sessionId });
+      return false;
+    }
+    if (!sessionId) {
+      console.error('[persistMessage] no sessionId; cannot insert', { role });
+      return false;
+    }
+    if (!content || !content.trim()) {
+      console.warn('[persistMessage] skipping empty content', { role, sessionId });
+      return false;
+    }
     const dbRole = role === 'user' ? 'user' : 'assistant';
     const { error } = await supabase
       .from('chat_messages')
-      .insert({ user_id: userId, conversation_id: sessionId, role: dbRole, content });
-    if (error) console.error('persist message failed', error);
+      .insert([{ user_id: userId, conversation_id: sessionId, role: dbRole, content }]);
+    if (error) {
+      // Critical: surface RLS / schema failures instead of silently dropping AI messages
+      console.error(`[persistMessage] Failed to save ${dbRole} message:`, error, { sessionId });
+      toast.error(`Failed to save ${dbRole === 'user' ? 'your' : 'AI'} message`);
+      return false;
+    }
+    return true;
   };
 
   const handleSend = async () => {
@@ -263,8 +284,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     const isFirstMessage =
       messages.filter(m => m.id !== 'welcome' && m.role === 'user').length === 0;
 
+    // Guarantee a valid session id for BOTH the user insert and the later AI insert.
     const sessionId = await ensureSession();
-    if (!sessionId) return;
+    if (!sessionId) {
+      toast.error('Could not create conversation');
+      return;
+    }
 
     const userMsg: ChatInterfaceMessage = {
       id: Date.now().toString(),
@@ -272,16 +297,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       text: trimmed,
       timestamp: Date.now(),
     };
+
+    // 1) Insert user message to DB, then reflect in local state.
+    const userSaved = await persistMessage(sessionId, 'user', trimmed);
+    if (!userSaved) {
+      // Don't proceed to AI if we couldn't even save the prompt (surfaces RLS immediately).
+      return;
+    }
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
-    await persistMessage(sessionId, 'user', trimmed);
 
     if (isFirstMessage) {
-      // Fire-and-forget so UI doesn't wait on the title UPDATE
       autoTitleIfNeeded(sessionId, trimmed);
     }
-
 
     const aiMessages = messages
       .filter(m => m.id !== 'welcome')
@@ -299,7 +328,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         toast.error('Session expired. Sign in again.');
-        setIsTyping(false);
         return;
       }
 
@@ -318,7 +346,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
         else if (resp.status === 429) toast.error('Rate limit exceeded.');
         else if (resp.status === 402) toast.error('AI credits exhausted.');
         else toast.error('AI service error');
-        setIsTyping(false);
         return;
       }
 
@@ -358,16 +385,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
           }
         }
       }
-
-      if (assistantText) await persistMessage(sessionId, 'model', assistantText);
     } catch (e) {
-      console.error('Chat error:', e);
+      console.error('[handleSend] Chat stream error:', e);
       toast.error('Failed to get AI response');
     } finally {
+      // 2) Persist whatever assistant text we produced — even on partial/errored streams —
+      //    so the reply is never silently lost from the database.
+      if (assistantText.trim()) {
+        const ok = await persistMessage(sessionId, 'model', assistantText);
+        if (!ok) {
+          console.error('[handleSend] AI message NOT persisted; will not appear on reload', {
+            sessionId,
+            length: assistantText.length,
+          });
+        }
+      } else {
+        console.warn('[handleSend] No assistant text produced; nothing to persist', { sessionId });
+      }
       setIsTyping(false);
       setStreamingId(null);
     }
   };
+
 
   return (
     <div className="h-full w-full flex flex-col bg-[#050505] relative">
