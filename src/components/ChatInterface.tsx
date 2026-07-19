@@ -491,18 +491,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                   <p className="text-center text-zinc-500 text-xs py-10">No conversations yet</p>
                 ) : (
                   sessions.map((s) => (
-                    <button
+                    <div
                       key={s.id}
-                      onClick={() => loadSession(s.id)}
-                      className={`w-full flex items-center gap-2 text-left p-3 rounded-xl truncate transition-colors ${
+                      className={`group w-full flex items-center gap-2 p-3 rounded-xl transition-colors ${
                         activeSessionId === s.id
                           ? 'bg-white/10 text-white'
                           : 'text-zinc-400 hover:bg-white/5 hover:text-white'
                       }`}
                     >
-                      <MessageSquare size={14} className="shrink-0 opacity-60" />
-                      <span className="text-sm truncate">{s.title || 'Untitled'}</span>
-                    </button>
+                      <button
+                        onClick={() => loadSession(s.id)}
+                        className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                      >
+                        <MessageSquare size={14} className="shrink-0 opacity-60" />
+                        <span className="text-sm truncate">{s.title || 'Untitled'}</span>
+                      </button>
+                      <button
+                        onClick={(e) => deleteChat(s.id, e)}
+                        aria-label="Delete chat"
+                        className="shrink-0 p-1.5 rounded-lg text-zinc-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   ))
                 )}
               </div>
