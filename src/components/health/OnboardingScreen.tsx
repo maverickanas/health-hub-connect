@@ -144,7 +144,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
       return Number(data.heightCm) > 50 && Number(data.massKg) > 20;
     }
     if (step === 2) {
-      return data.activityLevel !== '' && data.fitnessGoal !== '' && Number(data.targetWeightKg) > 20;
+      if (data.activityLevel === '' || data.fitnessGoal === '') return false;
+      if (data.fitnessGoal === 'Maintain') return true;
+      return Number(data.targetWeightKg) > 20;
     }
     return false;
   };
@@ -160,6 +162,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
       if (authErr || !authData.user) throw authErr || new Error('Not authenticated');
       const uid = authData.user.id;
 
+      const finalTargetWeight =
+        data.fitnessGoal === 'Maintain' ? Number(data.massKg) : Number(data.targetWeightKg);
+
       const payload = {
         user_id: uid,
         display_name: data.fullName.trim(),
@@ -169,7 +174,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
         weight: Number(data.massKg),
         activity_level: data.activityLevel,
         fitness_goal: data.fitnessGoal,
-        target_weight: Number(data.targetWeightKg),
+        target_weight: finalTargetWeight,
       };
 
       const { error } = await supabase
@@ -334,16 +339,18 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
                     ]}
                   />
                 </NeonField>
-                <NeonField label="Target Weight" unit="kg">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={data.targetWeightKg}
-                    onChange={e => set('targetWeightKg', e.target.value)}
-                    placeholder="68"
-                    className={inputClass}
-                  />
-                </NeonField>
+                {data.fitnessGoal !== 'Maintain' && data.fitnessGoal !== '' && (
+                  <NeonField label="Target Weight" unit="kg">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={data.targetWeightKg}
+                      onChange={e => set('targetWeightKg', e.target.value)}
+                      placeholder={data.fitnessGoal === 'Weight Loss' ? '68' : '78'}
+                      className={inputClass}
+                    />
+                  </NeonField>
+                )}
               </>
             )}
           </motion.div>
