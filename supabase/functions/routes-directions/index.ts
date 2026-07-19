@@ -61,25 +61,39 @@ Deno.serve(async (req) => {
       units: "METRIC",
     };
 
-    const res = await fetch(`${GATEWAY_URL}/routes/directions/v2:computeRoutes`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": GOOGLE_MAPS_API_KEY,
-        "Content-Type": "application/json",
-        "X-Goog-FieldMask":
-          "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction,routes.legs.steps.distanceMeters,routes.legs.steps.polyline.encodedPolyline",
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
+    const callRoutes = async (mode: string) => {
+      const r = await fetch(`${GATEWAY_URL}/routes/directions/v2:computeRoutes`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": GOOGLE_MAPS_API_KEY,
+          "Content-Type": "application/json",
+          "X-Goog-FieldMask":
+            "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction,routes.legs.steps.distanceMeters",
+        },
+        body: JSON.stringify({ ...payload, travelMode: mode }),
+      });
+      const j = await r.json();
+      return { r, j };
+    };
+
+    let { r: res, j: data } = await callRoutes(travelMode);
+    console.log("Routes API status", res.status, "mode", travelMode, "body", JSON.stringify(data).slice(0, 500));
+
+    // Fallback: if WALK/BICYCLE returns no route, try DRIVE so the user still gets a path.
+    if (res.ok && !data.routes?.[0] && travelMode !== "DRIVE") {
+      const fb = await callRoutes("DRIVE");
+      console.log("Fallback DRIVE status", fb.r.status, "body", JSON.stringify(fb.j).slice(0, 500));
+      if (fb.r.ok && fb.j.routes?.[0]) { res = fb.r; data = fb.j; }
+    }
+
     if (!res.ok) {
-      return new Response(JSON.stringify({ error: "Routes API error", details: data }),
+      return new Response(JSON.stringify({ error: "Routes API error", status: res.status, details: data }),
         { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const route = data.routes?.[0];
     if (!route) {
-      return new Response(JSON.stringify({ error: "No route found" }),
+      return new Response(JSON.stringify({ error: "No route found", details: data }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const polyline = decodePolyline(route.polyline.encodedPolyline);
