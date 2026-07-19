@@ -60,6 +60,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [renameDraft, setRenameDraft] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
+  useEffect(() => { activeSessionIdRef.current = activeSessionId; }, [activeSessionId]);
+
+
 
   // Auth
   useEffect(() => {
