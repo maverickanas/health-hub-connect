@@ -177,7 +177,7 @@ const Index = () => {
 
   const handleSignUp = async (email: string, password: string) => {
     await signUpWithPassword(email, password);
-    toast.success('Account created. Check your inbox to confirm.');
+    toast.success('Welcome to Elite Access!');
   };
 
   const handleGoogle = async () => {
