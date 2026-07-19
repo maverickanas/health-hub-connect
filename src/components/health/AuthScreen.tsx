@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight, Check, Circle } from 'lucide-react';
 import { toast } from 'sonner';
 import Logo from './Logo';
 
@@ -58,6 +58,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
   const anyBusy = busy || googleBusy;
+
+  const pwChecks = [
+    { key: 'len', label: '8+ characters', ok: password.length >= 8 },
+    { key: 'upper', label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
+    { key: 'lower', label: 'Lowercase letter', ok: /[a-z]/.test(password) },
+    { key: 'num', label: 'Number', ok: /\d/.test(password) },
+    { key: 'special', label: 'Special (!@#$%^&*)', ok: /[!@#$%^&*]/.test(password) },
+  ];
+  const allPwValid = pwChecks.every((c) => c.ok);
+  const emailValid = isValidEmail(email);
+  const signupDisabled = mode === 'signup' && (!allPwValid || !emailValid);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,11 +198,35 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
               )}
             </div>
 
+
+
+            {mode === 'signup' && (
+              <motion.ul
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 pl-1"
+              >
+                {pwChecks.map((c) => (
+                  <li
+                    key={c.key}
+                    className={`flex items-center gap-1.5 text-xs transition-colors ${
+                      c.ok ? 'text-[#CCFF00]' : 'text-zinc-500'
+                    }`}
+                  >
+                    {c.ok ? <Check size={12} strokeWidth={3} /> : <Circle size={10} strokeWidth={2} />}
+                    <span className="tracking-tight">{c.label}</span>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+
             <motion.button
               type="submit"
-              disabled={anyBusy}
+              disabled={anyBusy || signupDisabled}
               whileTap={{ scale: 0.98 }}
-              className="w-full h-12 bg-[#CCFF00] text-black rounded-xl font-black uppercase tracking-[0.28em] text-xs flex items-center justify-center gap-2 disabled:opacity-60 mt-2"
+              className={`w-full h-12 bg-[#CCFF00] text-black rounded-xl font-black uppercase tracking-[0.28em] text-xs flex items-center justify-center gap-2 mt-2 ${
+                signupDisabled ? 'opacity-50 cursor-not-allowed' : 'disabled:opacity-60'
+              }`}
             >
               {busy
                 ? <><Loader2 className="animate-spin" size={16} /> {mode === 'signup' ? 'Creating…' : 'Signing In…'}</>
