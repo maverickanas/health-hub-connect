@@ -529,30 +529,82 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                 <MessageSquarePlus size={14} /> New Chat
               </button>
 
+              <div className="mx-4 mt-3 relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search chats"
+                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#CCFF00]/40 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-white"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
               <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 no-scrollbar">
                 {loadingSessions ? (
                   <div className="flex items-center justify-center py-10">
                     <Loader2 size={20} className="animate-spin text-[#CCFF00]" />
                   </div>
-                ) : sessions.length === 0 ? (
-                  <p className="text-center text-zinc-500 text-xs py-10">No conversations yet</p>
-                ) : (
-                  sessions.map((s) => (
+                ) : (() => {
+                  const q = searchQuery.trim().toLowerCase();
+                  const filtered = q
+                    ? sessions.filter(s => (s.title || '').toLowerCase().includes(q))
+                    : sessions;
+                  if (sessions.length === 0) {
+                    return <p className="text-center text-zinc-500 text-xs py-10">No conversations yet</p>;
+                  }
+                  if (filtered.length === 0) {
+                    return <p className="text-center text-zinc-500 text-xs py-10">No matches for "{searchQuery}"</p>;
+                  }
+                  return filtered.map((s) => (
                     <div
                       key={s.id}
-                      className={`group w-full flex items-center gap-2 p-3 rounded-xl transition-colors ${
+                      className={`group w-full flex items-center gap-1 p-2 rounded-xl transition-colors ${
                         activeSessionId === s.id
                           ? 'bg-white/10 text-white'
                           : 'text-zinc-400 hover:bg-white/5 hover:text-white'
                       }`}
                     >
-                      <button
-                        onClick={() => loadSession(s.id)}
-                        className="flex-1 min-w-0 flex items-center gap-2 text-left"
-                      >
-                        <MessageSquare size={14} className="shrink-0 opacity-60" />
-                        <span className="text-sm truncate">{s.title || 'Untitled'}</span>
-                      </button>
+                      {renamingId === s.id ? (
+                        <input
+                          autoFocus
+                          value={renameDraft}
+                          onChange={(e) => setRenameDraft(e.target.value)}
+                          onBlur={() => commitRename(s.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); commitRename(s.id); }
+                            if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+                          }}
+                          maxLength={80}
+                          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-black/40 border border-[#CCFF00]/40 text-sm text-white focus:outline-none"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => loadSession(s.id)}
+                          className="flex-1 min-w-0 flex items-center gap-2 text-left px-1 py-1"
+                        >
+                          <MessageSquare size={14} className="shrink-0 opacity-60" />
+                          <span className="text-sm truncate">{s.title || 'Untitled'}</span>
+                        </button>
+                      )}
+                      {renamingId !== s.id && (
+                        <button
+                          onClick={(e) => startRename(s, e)}
+                          aria-label="Rename chat"
+                          className="shrink-0 p-1.5 rounded-lg text-zinc-600 hover:text-[#CCFF00] hover:bg-[#CCFF00]/10 transition-colors"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
                       <button
                         onClick={(e) => deleteChat(s.id, e)}
                         aria-label="Delete chat"
@@ -561,8 +613,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                         <Trash2 size={14} />
                       </button>
                     </div>
-                  ))
-                )}
+                  ));
+                })()}
               </div>
             </motion.aside>
           </>
