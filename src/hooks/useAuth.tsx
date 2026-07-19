@@ -136,12 +136,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUpWithPassword = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: `${window.location.origin}/` },
     });
     if (error) throw error;
+    // When email confirmations are enabled, Supabase returns a stubbed user
+    // with an empty `identities` array for an already-registered email
+    // (no error). Surface it as a normalised "already registered" error so
+    // AuthScreen can auto-switch to Log In.
+    if (data?.user && Array.isArray((data.user as any).identities) && (data.user as any).identities.length === 0) {
+      const e: any = new Error('User already registered');
+      e.code = 'user_already_exists';
+      throw e;
+    }
   };
 
   const signInWithGoogle = async () => {

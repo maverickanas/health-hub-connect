@@ -1,7 +1,21 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 import Logo from './Logo';
+
+// Supabase surfaces "already registered" via a few slightly different strings
+// depending on version / email-confirm settings. Match them all.
+const isAlreadyRegistered = (err: any): boolean => {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const code = String(err?.code || err?.name || '').toLowerCase();
+  return (
+    msg.includes('already registered') ||
+    msg.includes('already exists') ||
+    msg.includes('user already') ||
+    code === 'user_already_exists'
+  );
+};
 
 interface AuthScreenProps {
   onSignIn: (email: string, password: string) => Promise<void>;
@@ -29,6 +43,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
   const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const passwordRef = useRef<HTMLInputElement>(null);
+
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
   const anyBusy = busy || googleBusy;
 
@@ -43,7 +59,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
       if (mode === 'signup') await onSignUp(em, password);
       else await onSignIn(em, password);
     } catch (err: any) {
-      setError(err?.message || 'Authentication failed.');
+      // Smart auto-switch: signing up with an existing email flips to Log In,
+      // preserves the email, and focuses the password field.
+      if (mode === 'signup' && isAlreadyRegistered(err)) {
+        toast.info('Account already exists. Please log in.');
+        setMode('login');
+        setPassword('');
+        setError(null);
+        setTimeout(() => passwordRef.current?.focus(), 60);
+      } else {
+        setError(err?.message || 'Authentication failed.');
+      }
     } finally {
       setBusy(false);
     }
@@ -125,6 +151,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#CCFF00] transition-colors" />
                 <input
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   value={password}
