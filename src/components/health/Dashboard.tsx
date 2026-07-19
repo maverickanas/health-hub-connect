@@ -274,8 +274,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
               <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-[0.15em] mt-1">Hydration</p>
             </div>
           </motion.div>
+          </div>
         </div>
-      </div>
+      </main>
+
 
       <StreakHistoryModal
         open={showStreakHistory}
