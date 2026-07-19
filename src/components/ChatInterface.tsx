@@ -47,6 +47,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [messages, setMessages] = useState<ChatInterfaceMessage[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -247,6 +248,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       }));
 
     const assistantId = (Date.now() + 1).toString();
+    setStreamingId(assistantId);
     let assistantText = '';
 
     try {
@@ -319,6 +321,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       toast.error('Failed to get AI response');
     } finally {
       setIsTyping(false);
+      setStreamingId(null);
     }
   };
 
@@ -386,6 +389,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                         : 'prose-invert [&_strong]:text-[#CCFF00]'
                     }`}>
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      {msg.role === 'model' && msg.id === streamingId && (
+                        <span className="inline-block w-[2px] h-3 ml-0.5 align-middle bg-[#CCFF00] animate-pulse" aria-hidden />
+                      )}
                     </div>
                   </div>
                   {msg.role === 'model' && msg.id !== 'welcome' && onAcceptPlan && extractCalorieTarget(msg.text) && (
@@ -408,15 +414,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
           </AnimatePresence>
           )}
 
-          {isTyping && messages[messages.length - 1]?.role !== 'model' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2.5">
+          {isTyping && !messages.some(m => m.id === streamingId) && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2.5" aria-live="polite">
               <div className="w-8 h-8 rounded-xl bg-[#1A1A1A] border border-white/5 flex items-center justify-center">
                 <Sparkles size={14} className="text-[#CCFF00] animate-pulse" />
               </div>
-              <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl rounded-tl-sm p-4 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2.5">
+                <span className="text-xs text-zinc-400 font-medium tracking-wide">AI is thinking</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
               </div>
             </motion.div>
           )}
