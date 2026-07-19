@@ -43,7 +43,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
   };
 
   return (
-    <div className="h-full w-full overflow-y-auto no-scrollbar pb-28">
+    <div className="w-full h-[100dvh] flex flex-col overflow-hidden bg-[#0A0A0A]">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-28 no-scrollbar">
       {/* Greeting */}
       <div className="px-6 pt-12 pb-2 flex items-center justify-between">
         <div>
@@ -273,8 +274,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, userName, streak, onToggleT
               <p className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-[0.15em] mt-1">Hydration</p>
             </div>
           </motion.div>
+          </div>
         </div>
-      </div>
+      </main>
+
 
       <StreakHistoryModal
         open={showStreakHistory}
