@@ -10,7 +10,7 @@ import OnboardingScreen from '@/components/health/OnboardingScreen';
 import Dashboard from '@/components/health/Dashboard';
 import FoodLens from '@/components/health/FoodLens';
 import GPSTracker from '@/components/health/GPSTracker';
-import ChatBot from '@/components/health/ChatBot';
+import ChatInterface from '@/components/ChatInterface';
 import ProfileScreen from '@/components/health/ProfileScreen';
 import Navigation from '@/components/health/Navigation';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
