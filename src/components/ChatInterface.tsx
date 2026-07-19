@@ -321,6 +321,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       toast.error('Failed to get AI response');
     } finally {
       setIsTyping(false);
+      setStreamingId(null);
     }
   };
 
