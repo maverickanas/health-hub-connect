@@ -47,6 +47,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [messages, setMessages] = useState<ChatInterfaceMessage[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
