@@ -4,6 +4,7 @@ import { Send, Bot, User, MessageSquarePlus, Sparkles, Check, Menu, X, Loader2, 
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import ChatDeletedToast from './ChatDeletedToast';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`;
 
@@ -58,6 +59,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [deletedToastOpen, setDeletedToastOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -222,7 +224,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       setActiveSessionId(null);
       setMessages([{ ...WELCOME, timestamp: Date.now() }]);
     }
-    toast.success('Chat deleted');
+    setDeletedToastOpen(true);
   };
 
   const startRename = (s: ChatSessionRow, e: React.MouseEvent) => {
@@ -491,6 +493,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
 
   return (
     <div className="h-full w-full flex flex-col bg-[#050505] relative">
+      {deletedToastOpen && (
+        <ChatDeletedToast onClose={() => setDeletedToastOpen(false)} />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 border-b border-white/5">
         <motion.button
