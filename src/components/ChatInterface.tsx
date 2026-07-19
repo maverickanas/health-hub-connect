@@ -135,13 +135,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isTyping]);
 
-  const ensureSession = async (firstUserText: string): Promise<string | null> => {
+  const ensureSession = async (): Promise<string | null> => {
     if (activeSessionId) return activeSessionId;
     if (!userId) return null;
-    const title = firstUserText.split(/\s+/).slice(0, 5).join(' ').slice(0, 80) || 'New chat';
     const { data, error } = await supabase
       .from('chat_conversations')
-      .insert({ user_id: userId, title })
+      .insert({ user_id: userId, title: 'New chat' })
       .select('id, title, created_at')
       .single();
     if (error || !data) {
@@ -152,6 +151,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     setActiveSessionId(data.id);
     setSessions(prev => [data as ChatSessionRow, ...prev]);
     return data.id;
+  };
+
+  const autoTitleIfNeeded = async (sessionId: string, firstUserText: string) => {
+    const current = sessions.find(s => s.id === sessionId);
+    const isDefault = !current || current.title === 'New chat' || current.title.trim() === '';
+    if (!isDefault) return;
+    const words = firstUserText.trim().split(/\s+/).slice(0, 5).join(' ');
+    const newTitle = (words.length > 60 ? words.slice(0, 60) : words) + '…';
+    // Optimistic local update
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle } : s));
+    const { error } = await supabase
+      .from('chat_conversations')
+      .update({ title: newTitle })
+      .eq('id', sessionId);
+    if (error) console.error('auto-title update failed', error);
   };
 
   const persistMessage = async (sessionId: string, role: 'user' | 'model', content: string) => {
@@ -171,7 +185,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       return;
     }
 
-    const sessionId = await ensureSession(trimmed);
+    // Detect first message BEFORE session/state mutations
+    const isFirstMessage =
+      messages.filter(m => m.id !== 'welcome' && m.role === 'user').length === 0;
+
+    const sessionId = await ensureSession();
     if (!sessionId) return;
 
     const userMsg: ChatInterfaceMessage = {
@@ -183,7 +201,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
-    persistMessage(sessionId, 'user', trimmed);
+    await persistMessage(sessionId, 'user', trimmed);
+
+    if (isFirstMessage) {
+      // Fire-and-forget so UI doesn't wait on the title UPDATE
+      autoTitleIfNeeded(sessionId, trimmed);
+    }
+
 
     const aiMessages = messages
       .filter(m => m.id !== 'welcome')
