@@ -110,22 +110,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const loadSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
     setLoadingMessages(true);
+    // Bulletproof fetch: pull EVERY message row for this conversation, ordered chronologically.
+    // Do NOT filter by role here — user AND assistant/model rows must render.
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('id, role, content, created_at')
+      .select('*')
       .eq('conversation_id', sessionId)
       .order('created_at', { ascending: true });
     if (error) {
-      console.error(error);
+      console.error('[loadSession] fetch failed:', error);
       toast.error('Failed to load conversation');
       setMessages([WELCOME]);
     } else {
-      const msgs = (data ?? []).map(rowToMessage);
+      const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+      console.log(`[loadSession] loaded ${rows.length} messages for ${sessionId}`,
+        rows.reduce<Record<string, number>>((acc, r) => { acc[r.role] = (acc[r.role] ?? 0) + 1; return acc; }, {}));
+      const msgs = rows.map(rowToMessage);
       setMessages(msgs.length ? msgs : [WELCOME]);
     }
     setLoadingMessages(false);
     setDrawerOpen(false);
   };
+
 
   const handleNewChat = () => {
     setActiveSessionId(null);
