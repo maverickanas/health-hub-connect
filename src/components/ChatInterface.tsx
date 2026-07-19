@@ -224,7 +224,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       setActiveSessionId(null);
       setMessages([{ ...WELCOME, timestamp: Date.now() }]);
     }
-    toast.success('Chat deleted');
+    setDeletedToastOpen(true);
   };
 
   const startRename = (s: ChatSessionRow, e: React.MouseEvent) => {
