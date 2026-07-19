@@ -1,7 +1,21 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 import Logo from './Logo';
+
+// Supabase surfaces "already registered" via a few slightly different strings
+// depending on version / email-confirm settings. Match them all.
+const isAlreadyRegistered = (err: any): boolean => {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const code = String(err?.code || err?.name || '').toLowerCase();
+  return (
+    msg.includes('already registered') ||
+    msg.includes('already exists') ||
+    msg.includes('user already') ||
+    code === 'user_already_exists'
+  );
+};
 
 interface AuthScreenProps {
   onSignIn: (email: string, password: string) => Promise<void>;
