@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, AlertCircle, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Logo from './Logo';
 
@@ -34,6 +34,17 @@ const GoogleIcon = () => (
   </svg>
 );
 
+// Short, human-friendly copy for common Supabase auth errors — surfaced via toast.
+const friendlyAuthError = (err: any): string => {
+  const raw = String(err?.message || err || '').toLowerCase();
+  if (raw.includes('weak') || raw.includes('pwned') || raw.includes('compromised')) return 'Password is too weak. Try a longer, unique one.';
+  if (raw.includes('invalid login') || raw.includes('invalid credentials')) return 'Wrong email or password.';
+  if (raw.includes('email not confirmed')) return 'Please confirm your email first.';
+  if (raw.includes('rate limit')) return 'Too many attempts. Try again in a moment.';
+  if (raw.includes('network')) return 'Network error. Check your connection.';
+  return err?.message || 'Authentication failed.';
+};
+
 const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle }) => {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -41,7 +52,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<{ field: 'email' | 'password'; msg: string } | null>(null);
 
   const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -50,25 +61,23 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFieldError(null);
     const em = email.trim().toLowerCase();
-    if (!isValidEmail(em)) { setError('Enter a valid email address.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (!isValidEmail(em)) { setFieldError({ field: 'email', msg: 'Invalid email' }); return; }
+    if (password.length < 6) { setFieldError({ field: 'password', msg: 'Min 6 characters' }); return; }
     setBusy(true);
     try {
       if (mode === 'signup') await onSignUp(em, password);
       else await onSignIn(em, password);
     } catch (err: any) {
-      // Smart auto-switch: signing up with an existing email flips to Log In,
-      // preserves the email, and focuses the password field.
+      // Smart auto-switch: signing up with an existing email flips to Log In.
       if (mode === 'signup' && isAlreadyRegistered(err)) {
         toast.info('Account already exists. Please log in.');
         setMode('login');
         setPassword('');
-        setError(null);
         setTimeout(() => passwordRef.current?.focus(), 60);
       } else {
-        setError(err?.message || 'Authentication failed.');
+        toast.error(friendlyAuthError(err));
       }
     } finally {
       setBusy(false);
@@ -76,134 +85,138 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
   };
 
   const handleGoogle = async () => {
-    setError(null);
+    setFieldError(null);
     setGoogleBusy(true);
     try {
       await onGoogle();
     } catch (err: any) {
-      setError(err?.message || 'Google sign-in failed.');
+      toast.error(friendlyAuthError(err));
     } finally {
       setGoogleBusy(false);
     }
   };
 
+  const inputBase =
+    'w-full h-12 bg-[#0F0F0F] border rounded-xl pl-11 pr-4 text-sm text-foreground outline-none transition-colors placeholder:text-zinc-600 disabled:opacity-50';
+
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col bg-[#0A0A0A] relative overflow-y-auto no-scrollbar">
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_center,_hsl(0_0%_8%)_0%,_hsl(0_0%_0%)_100%)] pointer-events-none" />
+    <div className="h-[100dvh] w-full overflow-hidden flex flex-col justify-center items-center bg-[#0A0A0A] relative">
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_hsl(0_0%_8%)_0%,_hsl(0_0%_0%)_100%)] pointer-events-none" />
 
-      <div className="relative z-10 min-h-[100dvh] w-full flex flex-col items-center p-6 pt-12 pb-10">
-        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full bg-white/[0.02] rounded-2xl p-8 md:p-10 border border-white/10"
-          >
-            <div className="flex flex-col items-center mb-8">
-              <Logo className="h-12 w-auto" />
-            </div>
+      <div className="relative z-10 w-full max-w-sm px-5">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full bg-white/[0.02] rounded-2xl p-6 border border-white/10"
+        >
+          <div className="flex flex-col items-center mb-5">
+            <Logo className="h-10 w-auto" />
+          </div>
 
-            {/* Toggle */}
-            <div className="relative flex bg-white/5 border border-white/10 rounded-full p-1 mb-6">
-              <motion.div
-                layout
-                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-[#CCFF00]"
-                style={{ left: mode === 'login' ? 4 : 'calc(50% + 0px)' }}
-              />
-              {(['login', 'signup'] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => { setMode(m); setError(null); }}
-                  disabled={anyBusy}
-                  className={`relative z-10 flex-1 py-2.5 text-[10px] font-black uppercase tracking-[0.28em] transition-colors ${
-                    mode === m ? 'text-black' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {m === 'login' ? 'Log In' : 'Sign Up'}
-                </button>
-              ))}
-            </div>
-
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 mb-5 flex items-center gap-2 text-destructive">
-                <AlertCircle size={14} className="shrink-0" />
-                <span className="text-xs font-bold uppercase tracking-widest">{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#CCFF00] transition-colors" />
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@domain.com"
-                  disabled={anyBusy}
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-foreground outline-none focus:border-[#CCFF00] transition-colors placeholder:text-zinc-600 disabled:opacity-50"
-                />
-              </div>
-
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#CCFF00] transition-colors" />
-                <input
-                  ref={passwordRef}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  disabled={anyBusy}
-                  required
-                  minLength={6}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-11 py-3.5 text-sm text-foreground outline-none focus:border-[#CCFF00] transition-colors placeholder:text-zinc-600 disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  disabled={anyBusy}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-zinc-500 hover:text-[#CCFF00] transition-colors"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-
-              <motion.button
-                type="submit"
+          {/* Toggle */}
+          <div className="relative flex bg-white/5 border border-white/10 rounded-full p-1 mb-5">
+            <motion.div
+              layout
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full bg-[#CCFF00]"
+              style={{ left: mode === 'login' ? 4 : 'calc(50% + 0px)' }}
+            />
+            {(['login', 'signup'] as Mode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setMode(m); setFieldError(null); }}
                 disabled={anyBusy}
-                whileTap={{ scale: 0.98 }}
-                className="w-full bg-[#CCFF00] text-black py-3.5 rounded-xl font-black uppercase tracking-[0.28em] text-xs flex items-center justify-center gap-2 disabled:opacity-60"
+                className={`relative z-10 flex-1 py-2 text-[10px] font-black uppercase tracking-[0.28em] transition-colors ${
+                  mode === m ? 'text-black' : 'text-zinc-400 hover:text-white'
+                }`}
               >
-                {busy
-                  ? <><Loader2 className="animate-spin" size={16} /> {mode === 'signup' ? 'Creating…' : 'Signing In…'}</>
-                  : <>{mode === 'signup' ? 'Create Account' : 'Log In'} <ArrowRight size={16} /></>}
-              </motion.button>
-            </form>
+                {m === 'login' ? 'Log In' : 'Sign Up'}
+              </button>
+            ))}
+          </div>
 
-            <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-[9px] text-zinc-500 font-black uppercase tracking-widest">Or</span>
-              <div className="flex-1 h-px bg-white/10" />
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="relative group">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#CCFF00] transition-colors" />
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (fieldError?.field === 'email') setFieldError(null); }}
+                placeholder="you@domain.com"
+                disabled={anyBusy}
+                required
+                className={`${inputBase} ${fieldError?.field === 'email' ? 'border-red-500/60' : 'border-white/10 focus:border-[#CCFF00]'}`}
+              />
+              {fieldError?.field === 'email' && (
+                <span className="absolute -bottom-4 left-2 text-[10px] text-red-500 font-semibold tracking-wide">
+                  {fieldError.msg}
+                </span>
+              )}
+            </div>
+
+            <div className="relative group">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#CCFF00] transition-colors" />
+              <input
+                ref={passwordRef}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); if (fieldError?.field === 'password') setFieldError(null); }}
+                placeholder="Password"
+                disabled={anyBusy}
+                required
+                minLength={6}
+                className={`${inputBase} pr-11 ${fieldError?.field === 'password' ? 'border-red-500/60' : 'border-white/10 focus:border-[#CCFF00]'}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                disabled={anyBusy}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-zinc-500 hover:text-[#CCFF00] transition-colors"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+              {fieldError?.field === 'password' && (
+                <span className="absolute -bottom-4 left-2 text-[10px] text-red-500 font-semibold tracking-wide">
+                  {fieldError.msg}
+                </span>
+              )}
             </div>
 
             <motion.button
-              type="button"
-              onClick={handleGoogle}
+              type="submit"
               disabled={anyBusy}
               whileTap={{ scale: 0.98 }}
-              className="w-full bg-transparent border border-white/20 text-white hover:bg-white/5 py-3.5 rounded-xl font-bold uppercase tracking-[0.22em] text-xs flex items-center justify-center gap-3 transition-colors disabled:opacity-60"
+              className="w-full h-12 bg-[#CCFF00] text-black rounded-xl font-black uppercase tracking-[0.28em] text-xs flex items-center justify-center gap-2 disabled:opacity-60 mt-2"
             >
-              {googleBusy
-                ? <><Loader2 className="animate-spin" size={16} /> Connecting…</>
-                : <><GoogleIcon /> Continue with Google</>}
+              {busy
+                ? <><Loader2 className="animate-spin" size={16} /> {mode === 'signup' ? 'Creating…' : 'Signing In…'}</>
+                : <>{mode === 'signup' ? 'Create Account' : 'Log In'} <ArrowRight size={16} /></>}
             </motion.button>
-          </motion.div>
-        </div>
+          </form>
+
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[9px] text-zinc-500 font-black uppercase tracking-widest">Or</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          <motion.button
+            type="button"
+            onClick={handleGoogle}
+            disabled={anyBusy}
+            whileTap={{ scale: 0.98 }}
+            className="w-full h-12 bg-transparent border border-white/20 text-white hover:bg-white/5 rounded-xl font-bold uppercase tracking-[0.22em] text-xs flex items-center justify-center gap-3 transition-colors disabled:opacity-60"
+          >
+            {googleBusy
+              ? <><Loader2 className="animate-spin" size={16} /> Connecting…</>
+              : <><GoogleIcon /> Continue with Google</>}
+          </motion.button>
+        </motion.div>
       </div>
     </div>
   );
