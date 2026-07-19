@@ -60,6 +60,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [renameDraft, setRenameDraft] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
+  useEffect(() => { activeSessionIdRef.current = activeSessionId; }, [activeSessionId]);
+
+
 
   // Auth
   useEffect(() => {
@@ -107,30 +111,83 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  const loadSession = async (sessionId: string) => {
-    setActiveSessionId(sessionId);
-    setLoadingMessages(true);
-    // Bulletproof fetch: pull EVERY message row for this conversation, ordered chronologically.
-    // Do NOT filter by role here — user AND assistant/model rows must render.
-    const { data, error } = await supabase
+  const fetchSessionRows = async (sessionId: string) => {
+    return await supabase
       .from('chat_messages')
       .select('*')
       .eq('conversation_id', sessionId)
       .order('created_at', { ascending: true });
+  };
+
+  const loadSession = async (sessionId: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setActiveSessionId(sessionId);
+      setLoadingMessages(true);
+      setDrawerOpen(false);
+    }
+    // Bulletproof fetch: pull EVERY message row for this conversation, ordered chronologically.
+    // Do NOT filter by role here — user AND assistant/model rows must render.
+    const { data, error } = await fetchSessionRows(sessionId);
     if (error) {
       console.error('[loadSession] fetch failed:', error);
-      toast.error('Failed to load conversation');
-      setMessages([WELCOME]);
-    } else {
-      const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
-      console.log(`[loadSession] loaded ${rows.length} messages for ${sessionId}`,
-        rows.reduce<Record<string, number>>((acc, r) => { acc[r.role] = (acc[r.role] ?? 0) + 1; return acc; }, {}));
-      const msgs = rows.map(rowToMessage);
-      setMessages(msgs.length ? msgs : [WELCOME]);
+      if (!opts?.silent) {
+        toast.error('Failed to load conversation');
+        setMessages([WELCOME]);
+      }
+      setLoadingMessages(false);
+      return;
     }
+    const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+    const roleCounts = rows.reduce<Record<string, number>>(
+      (acc, r) => { acc[r.role] = (acc[r.role] ?? 0) + 1; return acc; }, {}
+    );
+    console.log(`[loadSession] loaded ${rows.length} messages for ${sessionId}`, roleCounts, opts?.silent ? '(silent)' : '');
+    const msgs = rows.map(rowToMessage);
+    setMessages(msgs.length ? msgs : [WELCOME]);
     setLoadingMessages(false);
-    setDrawerOpen(false);
+
+    // Auto-resync guard: if the conversation has user messages but ZERO assistant replies,
+    // an assistant insert may still be in-flight (or lagging replication). Retry a couple of times.
+    if (!opts?.silent) {
+      const userCount = (roleCounts['user'] ?? 0);
+      const aiCount = (roleCounts['assistant'] ?? 0) + (roleCounts['model'] ?? 0);
+      const lastIsUser = rows.length > 0 && rows[rows.length - 1].role === 'user';
+      if (userCount > 0 && (aiCount === 0 || (aiCount < userCount && lastIsUser))) {
+        console.warn('[loadSession] missing AI replies — scheduling auto-resync', { userCount, aiCount });
+        scheduleAutoResync(sessionId, userCount, aiCount);
+      }
+    }
   };
+
+  const scheduleAutoResync = (sessionId: string, prevUserCount: number, prevAiCount: number) => {
+    let attempt = 0;
+    const maxAttempts = 3;
+    const tick = async () => {
+      attempt += 1;
+      // Bail if user navigated away from this session
+      if (sessionId !== activeSessionIdRef.current) return;
+      const { data, error } = await fetchSessionRows(sessionId);
+      if (error) {
+        console.error('[autoResync] fetch failed:', error);
+        return;
+      }
+      const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
+      const aiCount = rows.filter(r => r.role === 'assistant' || r.role === 'model').length;
+      if (aiCount > prevAiCount) {
+        console.log(`[autoResync] recovered ${aiCount - prevAiCount} AI message(s) on attempt ${attempt}`);
+        setMessages(rows.map(rowToMessage));
+        toast.success('AI replies resynced');
+        return;
+      }
+      if (attempt < maxAttempts) {
+        setTimeout(tick, 1500 * attempt); // 1.5s, 3s, 4.5s backoff
+      } else {
+        console.warn('[autoResync] gave up after', maxAttempts, 'attempts — no new AI replies found');
+      }
+    };
+    setTimeout(tick, 1500);
+  };
+
 
 
   const handleNewChat = () => {
