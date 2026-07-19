@@ -202,6 +202,18 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
         )}
       </div>
 
+      {cameraActive && isInitializing && (
+        <div className="absolute inset-0 z-[2] flex items-center justify-center bg-black">
+          <motion.p
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+            className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-[0.4em]"
+          >
+            Initializing Sensor...
+          </motion.p>
+        </div>
+      )}
+
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80 pointer-events-none z-[1]" />
 
       {(cameraActive || capturedImage) && (
