@@ -22,7 +22,16 @@ const WELCOME: ChatInterfaceMessage = {
   timestamp: Date.now(),
 };
 
-const ChatInterface: React.FC = () => {
+interface ChatInterfaceProps {
+  onAcceptPlan?: (dailyCalories: number) => void;
+}
+
+const extractCalorieTarget = (text: string): number | null => {
+  const match = text.match(/(\d{3,4})\s*(?:kcal|calories|cal)\s*(?:per day|daily|\/day)?/i);
+  return match ? parseInt(match[1]) : null;
+};
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [messages, setMessages] = useState<ChatInterfaceMessage[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
