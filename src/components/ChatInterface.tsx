@@ -183,8 +183,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
         </motion.button>
       </div>
 
-      {/* Scrollable history */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide no-scrollbar">
+      {/* Scrollable history with top fade */}
+      <div className="relative flex-1 flex flex-col min-h-0">
+        <div className="absolute top-0 left-0 w-full h-8 bg-gradient-to-b from-[#050505] to-transparent z-10 pointer-events-none" />
+        <div ref={scrollRef} className="overflow-y-auto w-full h-full p-4 space-y-4 pb-10 scrollbar-hide no-scrollbar">
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
             <motion.div
@@ -245,7 +247,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
             </div>
           </motion.div>
         )}
+        </div>
       </div>
+
+
 
       {/* Input area */}
       <div className="bg-[#0A0A0A] p-4 border-t border-white/10">
