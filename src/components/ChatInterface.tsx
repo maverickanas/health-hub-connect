@@ -248,6 +248,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       }));
 
     const assistantId = (Date.now() + 1).toString();
+    setStreamingId(assistantId);
     let assistantText = '';
 
     try {
