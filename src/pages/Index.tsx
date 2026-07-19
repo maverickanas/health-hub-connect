@@ -348,7 +348,7 @@ const Index = () => {
           )}
           {currentView === ViewState.COACH && (
             <motion.div key="coach" {...pageTransition} className="h-full w-full">
-              <ChatBot onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
+              <ChatInterface onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
             </motion.div>
           )}
           {currentView === ViewState.ME && (
