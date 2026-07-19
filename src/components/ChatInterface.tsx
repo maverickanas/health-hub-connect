@@ -389,6 +389,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                         : 'prose-invert [&_strong]:text-[#CCFF00]'
                     }`}>
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      {msg.role === 'model' && msg.id === streamingId && (
+                        <span className="inline-block w-[2px] h-3 ml-0.5 align-middle bg-[#CCFF00] animate-pulse" aria-hidden />
+                      )}
                     </div>
                   </div>
                   {msg.role === 'model' && msg.id !== 'welcome' && onAcceptPlan && extractCalorieTarget(msg.text) && (
