@@ -9,7 +9,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`
 
 export interface ChatInterfaceMessage {
   id: string;
-  role: 'user' | 'model';
+  role: 'user' | 'assistant';
   text: string;
   timestamp: number;
 }
@@ -22,7 +22,7 @@ interface ChatSessionRow {
 
 const WELCOME: ChatInterfaceMessage = {
   id: 'welcome',
-  role: 'model',
+  role: 'assistant',
   text: "Welcome to your **Neural Fitness Coach** 💪\n\nI analyze your patterns and deliver personalized insights on workouts, nutrition, and recovery. Ask me anything.\n\n*Try: \"Create a meal plan for 2000 kcal\"*",
   timestamp: Date.now(),
 };
@@ -38,7 +38,7 @@ const extractCalorieTarget = (text: string): number | null => {
 
 const rowToMessage = (r: { id: string; role: string; content: string; created_at: string }): ChatInterfaceMessage => ({
   id: r.id,
-  role: r.role === 'user' ? 'user' : 'model',
+  role: r.role === 'user' ? 'user' : 'assistant',
   text: r.content,
   timestamp: new Date(r.created_at).getTime(),
 });
@@ -150,7 +150,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     // an assistant insert may still be in-flight (or lagging replication). Retry a couple of times.
     if (!opts?.silent) {
       const userCount = (roleCounts['user'] ?? 0);
-      const aiCount = (roleCounts['assistant'] ?? 0) + (roleCounts['model'] ?? 0);
+      const aiCount = (roleCounts['assistant'] ?? 0);
       const lastIsUser = rows.length > 0 && rows[rows.length - 1].role === 'user';
       if (userCount > 0 && (aiCount === 0 || (aiCount < userCount && lastIsUser))) {
         console.warn('[loadSession] missing AI replies — scheduling auto-resync', { userCount, aiCount });
@@ -172,7 +172,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
         return;
       }
       const rows = (data ?? []) as Array<{ id: string; role: string; content: string; created_at: string }>;
-      const aiCount = rows.filter(r => r.role === 'assistant' || r.role === 'model').length;
+      const aiCount = rows.filter(r => r.role === 'assistant').length;
       if (aiCount > prevAiCount) {
         console.log(`[autoResync] recovered ${aiCount - prevAiCount} AI message(s) on attempt ${attempt}`);
         setMessages(rows.map(rowToMessage));
@@ -301,7 +301,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
 
   const persistMessage = async (
     sessionId: string,
-    role: 'user' | 'model',
+    role: 'user' | 'assistant',
     content: string,
   ): Promise<boolean> => {
     if (!userId) {
@@ -317,15 +317,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       return false;
     }
     const dbRole = role === 'user' ? 'user' : 'assistant';
-    const { error } = await supabase
+    const { data: messageData, error: messageInsertError } = await supabase
       .from('chat_messages')
-      .insert([{ user_id: userId, conversation_id: sessionId, role: dbRole, content }]);
-    if (error) {
+      .insert([{ user_id: userId, conversation_id: sessionId, role: dbRole, content }])
+      .select();
+    if (messageInsertError) {
       // Critical: surface RLS / schema failures instead of silently dropping AI messages
-      console.error(`[persistMessage] Failed to save ${dbRole} message:`, error, { sessionId });
+      console.error(
+        `SUPABASE ${dbRole.toUpperCase()} INSERT ERROR:`,
+        messageInsertError.message,
+        messageInsertError.details,
+        messageInsertError.hint,
+        { sessionId, userId, role: dbRole },
+      );
+      window.alert(`DB Error: ${messageInsertError.message}`);
       toast.error(`Failed to save ${dbRole === 'user' ? 'your' : 'AI'} message`);
       return false;
     }
+    console.log(`[persistMessage] saved ${dbRole} message`, messageData);
     return true;
   };
 
@@ -433,7 +442,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                 if (last?.id === assistantId) {
                   return prev.map((m, i) => i === prev.length - 1 ? { ...m, text: assistantText } : m);
                 }
-                return [...prev, { id: assistantId, role: 'model', text: assistantText, timestamp: Date.now() }];
+                return [...prev, { id: assistantId, role: 'assistant', text: assistantText, timestamp: Date.now() }];
               });
             }
           } catch {
@@ -449,7 +458,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
       // 2) Persist whatever assistant text we produced — even on partial/errored streams —
       //    so the reply is never silently lost from the database.
       if (assistantText.trim()) {
-        const ok = await persistMessage(sessionId, 'model', assistantText);
+        const { data: aiData, error: aiInsertError } = await supabase
+          .from('chat_messages')
+          .insert([{ user_id: userId, conversation_id: sessionId, role: 'assistant', content: assistantText }])
+          .select();
+
+        if (aiInsertError) {
+          console.error("SUPABASE AI INSERT ERROR:", aiInsertError.message, aiInsertError.details, aiInsertError.hint, {
+            currentSessionId: sessionId,
+            userId,
+            responseLength: assistantText.length,
+          });
+          window.alert(`DB Error: ${aiInsertError.message}`);
+          toast.error('Failed to save AI message');
+        }
+
+        const ok = !aiInsertError && Boolean(aiData?.length);
         if (!ok) {
           console.error('[handleSend] AI message NOT persisted; will not appear on reload', {
             sessionId,
@@ -529,12 +553,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                         : 'prose-invert [&_strong]:text-[#CCFF00]'
                     }`}>
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
-                      {msg.role === 'model' && msg.id === streamingId && (
+                      {msg.role === 'assistant' && msg.id === streamingId && (
                         <span className="inline-block w-[2px] h-3 ml-0.5 align-middle bg-[#CCFF00] animate-pulse" aria-hidden />
                       )}
                     </div>
                   </div>
-                  {msg.role === 'model' && msg.id !== 'welcome' && onAcceptPlan && extractCalorieTarget(msg.text) && (
+                  {msg.role === 'assistant' && msg.id !== 'welcome' && onAcceptPlan && extractCalorieTarget(msg.text) && (
                     <motion.button
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
