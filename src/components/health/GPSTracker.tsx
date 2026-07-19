@@ -474,25 +474,15 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         )}
       </AnimatePresence>
 
-      {/* ============ LAYER 3 — CONTROL PANEL ============ */}
+      {/* ============ LAYER 3 — UNIFIED BOTTOM SHEET ============ */}
       <div
-        className="absolute left-3 right-3 z-[1000] mx-auto max-w-md rounded-[1.5rem] border border-white/5 p-3 space-y-2.5"
+        className="absolute left-0 right-0 z-[1000] bg-[#0A0A0A]/95 backdrop-blur-xl border-t border-white/10 rounded-t-3xl p-6 pb-8 space-y-4"
         style={{
-          bottom: 'calc(6.25rem + env(safe-area-inset-bottom, 0px))',
-          background: 'rgba(18, 18, 18, 0.92)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-          boxShadow: '0 -10px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
         }}
       >
-        {/* 1. Activity Toggle — pill with vertical divider */}
-        <div
-          className="relative grid grid-cols-2 rounded-full border border-white/10 overflow-hidden"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
-        >
-          {/* center divider */}
-          <span className="pointer-events-none absolute top-1.5 bottom-1.5 left-1/2 w-px bg-white/10" />
-
+        {/* 1. Activity Toggle — sleek pill */}
+        <div className="bg-white/5 p-1 rounded-full flex">
           {(['walking', 'cycling'] as ActivityMode[]).map((mode) => {
             const Icon = mode === 'walking' ? Footprints : Bike;
             const active = activityMode === mode;
@@ -502,152 +492,109 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
                 key={mode}
                 onClick={() => !locked && setActivityMode(mode)}
                 disabled={locked}
-                className={`relative py-2 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.3em] transition-colors ${
-                  active ? 'text-primary' : 'text-muted-foreground'
+                className={`flex-1 py-2.5 rounded-full flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                  active ? 'bg-[#CCFF00] text-black' : 'text-zinc-400'
                 } ${locked ? 'opacity-60 cursor-not-allowed' : ''}`}
-                style={
-                  active
-                    ? {
-                        background:
-                          mode === 'walking'
-                            ? 'linear-gradient(90deg, rgba(204,255,0,0.14) 0%, rgba(204,255,0,0.02) 100%)'
-                            : 'linear-gradient(270deg, rgba(204,255,0,0.14) 0%, rgba(204,255,0,0.02) 100%)',
-                        textShadow: '0 0 12px rgba(204,255,0,0.6)',
-                      }
-                    : {}
-                }
               >
-                <Icon size={13} strokeWidth={active ? 2.5 : 2} />
+                <Icon size={14} strokeWidth={2.2} />
                 {mode}
               </button>
             );
           })}
         </div>
 
-        {/* 2. Action buttons — state machine */}
+        {/* 2. Primary action — state machine */}
         <AnimatePresence mode="wait">
           {workoutState === 'idle' && (
             <motion.button
               key="start"
-              initial={{ opacity: 0, scale: 0.96 }}
+              initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              whileTap={{ scale: 0.97 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleStart}
-              className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 flex flex-col items-center justify-center gap-0"
-              style={{ boxShadow: '0 0 36px rgba(204,255,0,0.45), 0 8px 22px rgba(204,255,0,0.18)' }}
+              className="w-full bg-[#CCFF00] text-black h-14 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2"
             >
-              <span className="flex items-center gap-2">
-                <Play size={15} fill="currentColor" />
-                <span className="text-[11px] font-black uppercase tracking-[0.3em]">Start Workout</span>
-              </span>
-              <span className="text-[8px] font-bold uppercase tracking-[0.2em] opacity-70">
-                Let's get moving!
-              </span>
+              <Play size={16} fill="currentColor" />
+              Start Workout
             </motion.button>
           )}
 
           {workoutState === 'active' && (
             <motion.div
               key="active"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: -6 }}
               className="flex gap-3"
             >
-              <motion.button
-                whileTap={{ scale: 0.96 }}
+              <button
                 onClick={handlePause}
-                className="flex-1 py-4 rounded-2xl bg-white/10 border border-white/15 text-foreground font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
+                className="flex-1 h-14 rounded-xl bg-white/5 border border-white/10 text-foreground font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2"
               >
-                <Pause size={18} fill="currentColor" /> Pause
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.96 }}
+                <Pause size={16} fill="currentColor" /> Pause
+              </button>
+              <button
                 onClick={handleStop}
-                className="flex-1 py-4 rounded-2xl bg-destructive/15 border border-destructive/40 text-destructive font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-2 backdrop-blur-xl"
+                className="flex-1 h-14 rounded-xl bg-white/5 border border-destructive/40 text-destructive font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2"
               >
-                <Square size={18} fill="currentColor" /> Stop
-              </motion.button>
+                <Square size={16} fill="currentColor" /> Stop
+              </button>
             </motion.div>
           )}
 
           {workoutState === 'paused' && (
             <motion.div
               key="paused"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="space-y-3"
+              exit={{ opacity: 0, y: -6 }}
+              className="space-y-2.5"
             >
-              <motion.button
-                whileTap={{ scale: 0.96 }}
+              <button
                 onClick={handleResume}
                 disabled={isSaving}
-                className="w-full py-3.5 rounded-2xl border border-primary/40 bg-primary/10 text-primary font-black text-xs uppercase tracking-[0.25em] flex items-center justify-center gap-2 backdrop-blur-xl disabled:opacity-50"
+                className="w-full h-12 rounded-xl border border-white/10 bg-white/5 text-foreground font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Play size={18} fill="currentColor" /> Resume
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.96 }}
+                <Play size={16} fill="currentColor" /> Resume
+              </button>
+              <button
                 onClick={handleFinishAndSave}
                 disabled={isSaving}
-                className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-wait"
-                style={{ boxShadow: '0 0 40px rgba(204,255,0,0.45), 0 8px 24px rgba(204,255,0,0.2)' }}
+                className="w-full h-14 rounded-xl bg-[#CCFF00] text-black font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
               >
                 {isSaving ? (
-                  <><Loader2 size={20} className="animate-spin" /> Saving…</>
+                  <><Loader2 size={18} className="animate-spin" /> Saving…</>
                 ) : (
-                  <><Save size={20} /> Finish & Save Protocol</>
+                  <><Save size={18} /> Finish & Save</>
                 )}
-              </motion.button>
-              <p className="text-[9px] font-bold text-muted-foreground text-center uppercase tracking-wider">
-                {distance.toFixed(2)} km · {formatTime(elapsed)} · {caloriesBurned} kcal
-              </p>
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* 3. Metrics Grid — 3 square cards */}
-        <div className="grid grid-cols-3 gap-1.5">
+        {/* 3. Metrics Grid — clean 3-col */}
+        <div className="grid grid-cols-3 gap-3">
           {[
-            { Icon: Clock, value: formatTime(elapsed), label: 'Time' },
-            { Icon: Navigation, value: secondaryMetric.value, label: secondaryMetric.label },
-            { Icon: MapPin, value: distance.toFixed(2), label: 'KM' },
-          ].map((m, i) => (
-            <motion.div
+            { value: formatTime(elapsed), label: 'Time' },
+            { value: secondaryMetric.value, label: secondaryMetric.label },
+            { value: distance.toFixed(2), label: 'KM' },
+          ].map((m) => (
+            <div
               key={m.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + i * 0.06 }}
-              className="rounded-xl border border-white/5 flex flex-col items-center justify-center p-2"
-              style={{ background: 'rgba(24,24,27,0.55)' }}
+              className="bg-white/5 border border-white/5 rounded-xl p-3 flex flex-col items-center justify-center"
             >
-              <m.Icon
-                size={12}
-                className="text-primary mb-1"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.45))' }}
-              />
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={m.value}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.2 }}
-                  className="text-base leading-none font-black text-foreground tabular-nums"
-                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
-                >
-                  {m.value}
-                </motion.p>
-              </AnimatePresence>
-              <p className="mt-1 text-[7px] font-extrabold text-muted-foreground uppercase tracking-[0.18em]">
+              <p className="text-lg leading-none font-bold text-white tabular-nums">
+                {m.value}
+              </p>
+              <p className="mt-1.5 text-zinc-400 text-xs uppercase tracking-wider">
                 {m.label}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
+
 
       {/* Route planner drawer */}
       <RoutePlannerDrawer
