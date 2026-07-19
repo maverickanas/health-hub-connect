@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, MessageSquarePlus, Sparkles, Check, Menu, X, Loader2, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, MessageSquarePlus, Sparkles, Check, Menu, X, Loader2, MessageSquare, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,6 +129,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     setDrawerOpen(false);
     toast.success('New chat started');
   };
+
+  const deleteChat = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const prev = sessions;
+    // Optimistic remove
+    setSessions(s => s.filter(x => x.id !== sessionId));
+    // Delete messages first, then conversation (works with or without cascade)
+    const { error: msgErr } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('conversation_id', sessionId);
+    const { error: convErr } = await supabase
+      .from('chat_conversations')
+      .delete()
+      .eq('id', sessionId);
+    if (msgErr || convErr) {
+      console.error(msgErr || convErr);
+      toast.error('Failed to delete chat');
+      setSessions(prev); // rollback
+      return;
+    }
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(null);
+      setMessages([{ ...WELCOME, timestamp: Date.now() }]);
+    }
+    toast.success('Chat deleted');
+  };
+
 
   // Auto-scroll
   useEffect(() => {
@@ -462,18 +491,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                   <p className="text-center text-zinc-500 text-xs py-10">No conversations yet</p>
                 ) : (
                   sessions.map((s) => (
-                    <button
+                    <div
                       key={s.id}
-                      onClick={() => loadSession(s.id)}
-                      className={`w-full flex items-center gap-2 text-left p-3 rounded-xl truncate transition-colors ${
+                      className={`group w-full flex items-center gap-2 p-3 rounded-xl transition-colors ${
                         activeSessionId === s.id
                           ? 'bg-white/10 text-white'
                           : 'text-zinc-400 hover:bg-white/5 hover:text-white'
                       }`}
                     >
-                      <MessageSquare size={14} className="shrink-0 opacity-60" />
-                      <span className="text-sm truncate">{s.title || 'Untitled'}</span>
-                    </button>
+                      <button
+                        onClick={() => loadSession(s.id)}
+                        className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                      >
+                        <MessageSquare size={14} className="shrink-0 opacity-60" />
+                        <span className="text-sm truncate">{s.title || 'Untitled'}</span>
+                      </button>
+                      <button
+                        onClick={(e) => deleteChat(s.id, e)}
+                        aria-label="Delete chat"
+                        className="shrink-0 p-1.5 rounded-lg text-zinc-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   ))
                 )}
               </div>
