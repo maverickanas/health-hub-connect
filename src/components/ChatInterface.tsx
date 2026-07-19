@@ -247,7 +247,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
             </div>
           </motion.div>
         )}
+        </div>
       </div>
+
+
 
       {/* Input area */}
       <div className="bg-[#0A0A0A] p-4 border-t border-white/10">
