@@ -39,8 +39,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, setView }) => {
             >
               <Icon
                 size={22}
-                strokeWidth={isActive ? 2.25 : 1.75}
-                fill={isActive ? 'currentColor' : 'none'}
+                strokeWidth={isActive ? 2.5 : 2}
                 className={`transition-colors duration-200 ${
                   isActive ? 'text-[#CCFF00]' : 'text-zinc-500 hover:text-zinc-400'
                 }`}
