@@ -198,12 +198,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
               )}
             </div>
 
-              {fieldError?.field === 'password' && (
-                <span className="absolute -bottom-4 left-2 text-[10px] text-red-500 font-semibold tracking-wide">
-                  {fieldError.msg}
-                </span>
-              )}
-            </div>
+
 
             {mode === 'signup' && (
               <motion.ul
