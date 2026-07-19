@@ -379,95 +379,36 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
         </MapContainer>
       </div>
 
-      {/* Right-side FAB stack: recenter + compass */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-2.5">
-        <button
-          onClick={() => setRecenterTrigger(t => t + 1)}
-          aria-label="Recenter map"
-          className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-95"
-          style={{
-            background: 'rgba(10,10,10,0.6)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-          }}
-        >
-          <Crosshair size={20} className="text-primary" style={{ filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.6))' }} />
-        </button>
-        <button
-          onClick={() => setFollowHeading(v => !v)}
-          aria-label="Toggle compass follow"
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center border backdrop-blur-xl transition-all active:scale-95 ${
-            followHeading ? 'border-primary/60 bg-primary/15' : 'border-white/10'
-          }`}
-          style={{
-            background: followHeading ? 'rgba(204,255,0,0.12)' : 'rgba(10,10,10,0.6)',
-            boxShadow: followHeading ? '0 0 24px rgba(204,255,0,0.35)' : '0 8px 24px rgba(0,0,0,0.5)',
-          }}
-        >
-          <Compass
-            size={20}
-            className={followHeading ? 'text-primary' : 'text-foreground'}
-            style={{
-              transform: `rotate(${followHeading ? 0 : -bearing}deg)`,
-              transition: 'transform 0.4s ease-out',
-              filter: followHeading ? 'drop-shadow(0 0 6px rgba(204,255,0,0.7))' : undefined,
-            }}
-          />
-        </button>
-      </div>
-
-      {/* ============ LAYER 2 — TOP HEADER ============ */}
+      {/* ============ LAYER 2 — TOP HEADER (compact) ============ */}
       <div className="absolute top-0 left-0 right-0 z-[1000] pointer-events-none">
-        {/* Fading gradient for readability */}
-        <div className="absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[#0A0A0A]/85 via-[#0A0A0A]/40 to-transparent" />
+        <div
+          className="relative px-4 pointer-events-auto flex items-center justify-between"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+        >
+          <button
+            aria-label="Open route planner"
+            onClick={() => setDrawerOpen(true)}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center border border-white/10 backdrop-blur-md active:scale-95 transition-all"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+          >
+            <Menu size={18} className="text-foreground" />
+          </button>
 
-        <div className="relative pt-12 px-5">
-          {/* Top row — menu + GPS pill */}
-          <div className="flex items-center justify-between pointer-events-auto">
-            <button
-              aria-label="Open route planner"
-              onClick={() => setDrawerOpen(true)}
-              className="w-11 h-11 rounded-2xl flex items-center justify-center border border-white/10 backdrop-blur-xl active:scale-95 transition-all"
-              style={{ background: 'rgba(10,10,10,0.55)' }}
-            >
-              <Menu size={18} className="text-foreground" />
-            </button>
-
-            <div
-              className="flex items-center gap-2 pl-3 pr-3.5 py-1.5 rounded-full border border-white/10 backdrop-blur-xl"
-              style={{ background: 'rgba(10,10,10,0.6)' }}
-            >
-              <span className="relative flex w-2 h-2">
-                {gpsLive && (
-                  <span className="absolute inline-flex w-full h-full rounded-full bg-primary opacity-60 animate-ping" />
-                )}
-                <span className={`relative inline-flex w-2 h-2 rounded-full ${gpsLive ? 'bg-primary' : 'bg-destructive'}`}
-                  style={gpsLive ? { boxShadow: '0 0 8px rgba(204,255,0,0.9)' } : {}} />
-              </span>
-              <span className="text-[10px] font-black text-foreground uppercase tracking-[0.2em]">GPS</span>
-            </div>
-          </div>
-
-          {/* Title stack */}
-          <div className="mt-6">
-            <p
-              className="text-[10px] font-extrabold text-primary uppercase tracking-[0.4em]"
-              style={{ textShadow: '0 0 12px rgba(204,255,0,0.55), 0 2px 6px rgba(0,0,0,0.9)' }}
-            >
-              GPS Live Tracking
-            </p>
-            <h1
-              className="mt-1.5 text-[40px] leading-[0.95] font-black uppercase tracking-tight"
-              style={{ textShadow: '0 4px 20px rgba(0,0,0,0.9)' }}
-            >
-              <span className="text-foreground">Route </span>
-              <span className="text-primary" style={{ textShadow: '0 0 24px rgba(204,255,0,0.45)' }}>Tracker</span>
-            </h1>
-            <p className="mt-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.25em]">
-              Track. Improve. Achieve.
-            </p>
+          <div
+            className="flex items-center gap-2 pl-3 pr-3.5 py-1.5 rounded-full border border-white/10 backdrop-blur-md"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+          >
+            <span className="relative flex w-2 h-2">
+              {gpsLive && (
+                <span className="absolute inline-flex w-full h-full rounded-full bg-primary opacity-60 animate-ping" />
+              )}
+              <span className={`relative inline-flex w-2 h-2 rounded-full ${gpsLive ? 'bg-primary' : 'bg-destructive'}`} />
+            </span>
+            <span className="text-[10px] font-black text-foreground uppercase tracking-[0.2em]">GPS</span>
           </div>
         </div>
       </div>
+
 
       {/* GPS Error toast */}
       <AnimatePresence>
