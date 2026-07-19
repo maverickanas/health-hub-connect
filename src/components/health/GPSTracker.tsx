@@ -467,7 +467,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       <div
         className="absolute left-4 right-4 z-[10] mx-auto max-w-md rounded-3xl border border-white/10 p-5 space-y-3"
         style={{
-          bottom: 'calc(6.25rem + env(safe-area-inset-bottom, 0px))',
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
           background: 'rgba(10,10,10,0.85)',
           backdropFilter: 'blur(24px) saturate(160%)',
           WebkitBackdropFilter: 'blur(24px) saturate(160%)',
