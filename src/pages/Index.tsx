@@ -33,7 +33,7 @@ const isFilledNumber = (v: unknown): boolean => {
 };
 
 const Index = () => {
-  const { user, loading, profile, profileLoading, refetchProfile, sendEmailOtp, verifyEmailOtp, signInAsGuest, signOut } = useAuth();
+  const { user, loading, profile, profileLoading, refetchProfile, signInWithPassword, signUpWithPassword, signInWithGoogle, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
 
   const [isTracking, setIsTracking] = useState(false);
@@ -170,20 +170,18 @@ const Index = () => {
     }
   }, [user, dataLoaded, showOnboarding]);
 
-  const handleSendOtp = async (email: string) => {
-    await sendEmailOtp(email);
-    toast.success('Security code sent. Check your inbox.');
+  const handleSignIn = async (email: string, password: string) => {
+    await signInWithPassword(email, password);
+    toast.success('Welcome back to Healthy Hub.');
   };
 
-  const handleVerifyOtp = async (email: string, code: string) => {
-    await verifyEmailOtp(email, code);
-    toast.success('Verified. Welcome to Healthy Hub.');
-    // Routing gate (profile completeness) takes over from here.
+  const handleSignUp = async (email: string, password: string) => {
+    await signUpWithPassword(email, password);
+    toast.success('Account created. Check your inbox to confirm.');
   };
 
-  const handleGuestLogin = async () => {
-    await signInAsGuest();
-    toast.success('Guest protocol initialized.');
+  const handleGoogle = async () => {
+    await signInWithGoogle();
   };
 
   const handleLogout = async () => {
@@ -286,7 +284,7 @@ const Index = () => {
     return (
       <>
         <RoutingDebugBanner rule={routingRule} profile={profile} profileLoading={profileLoading} />
-        <AuthScreen onSendOtp={handleSendOtp} onVerifyOtp={handleVerifyOtp} onGuestLogin={handleGuestLogin} />
+        <AuthScreen onSignIn={handleSignIn} onSignUp={handleSignUp} onGoogle={handleGoogle} />
       </>
     );
   }
