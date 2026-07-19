@@ -59,6 +59,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [deletedToastOpen, setDeletedToastOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
