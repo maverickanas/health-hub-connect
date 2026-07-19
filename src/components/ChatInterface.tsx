@@ -162,6 +162,41 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     toast.success('Chat deleted');
   };
 
+  const startRename = (s: ChatSessionRow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRenamingId(s.id);
+    setRenameDraft(s.title || '');
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameDraft('');
+  };
+
+  const commitRename = async (sessionId: string) => {
+    const next = renameDraft.trim().slice(0, 80);
+    const current = sessions.find(s => s.id === sessionId);
+    if (!next || !current || next === current.title) {
+      cancelRename();
+      return;
+    }
+    const prev = sessions;
+    setSessions(s => s.map(x => x.id === sessionId ? { ...x, title: next } : x));
+    setRenamingId(null);
+    const { error } = await supabase
+      .from('chat_conversations')
+      .update({ title: next })
+      .eq('id', sessionId);
+    if (error) {
+      console.error(error);
+      toast.error('Failed to rename');
+      setSessions(prev);
+    }
+  };
+
+
+
 
   // Auto-scroll
   useEffect(() => {
