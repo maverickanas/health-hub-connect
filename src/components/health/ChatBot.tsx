@@ -1,25 +1,36 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Sparkles, Mic, Check } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Mic, Check, MessageSquarePlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`;
+const STORAGE_KEY = 'healthyhub.chat.messages.v1';
+
+const WELCOME_MESSAGE: ChatMessage = {
+  id: '1',
+  role: 'model',
+  text: "Welcome to your Neural Fitness Coach! 💪 I analyze your patterns and provide personalized insights. Ask me anything about workouts, nutrition, or recovery.\n\nTry: *\"Create a meal plan for 2000 kcal\"*",
+  timestamp: Date.now(),
+};
 
 interface ChatBotProps {
   onAcceptPlan?: (dailyCalories: number) => void;
 }
 
 const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1', role: 'model',
-      text: "Welcome to your Neural Fitness Coach! 💪 I analyze your patterns and provide personalized insights. Ask me anything about workouts, nutrition, or recovery.\n\nTry: *\"Create a meal plan for 2000 kcal\"*",
-      timestamp: Date.now(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as ChatMessage[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { /* ignore */ }
+    return [WELCOME_MESSAGE];
+  });
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,7 +39,18 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  // Parse calorie target from AI response
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch { /* ignore */ }
+  }, [messages]);
+
+  const handleNewChat = () => {
+    setMessages([{ ...WELCOME_MESSAGE, timestamp: Date.now() }]);
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    toast.success('New chat started');
+  };
+
   const extractCalorieTarget = (text: string): number | null => {
     const match = text.match(/(\d{3,4})\s*(?:kcal|calories|cal)\s*(?:per day|daily|\/day)?/i);
     return match ? parseInt(match[1]) : null;
@@ -138,11 +160,21 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
 
   return (
     <div className="h-full w-full flex flex-col bg-background">
-      <div className="pt-14 pb-4 px-6 text-center">
-        <p className="text-[9px] font-extrabold text-primary/60 uppercase tracking-[0.4em]">Neural Insights</p>
-        <h1 className="text-lg font-black text-foreground uppercase tracking-wider mt-1">
-          AI <span className="text-primary">Coach</span>
-        </h1>
+      <div className="pt-14 pb-4 px-6 flex items-center justify-between">
+        <div className="flex-1 text-center">
+          <p className="text-[9px] font-extrabold text-primary/60 uppercase tracking-[0.4em]">Neural Insights</p>
+          <h1 className="text-lg font-black text-foreground uppercase tracking-wider mt-1">
+            AI <span className="text-primary">Coach</span>
+          </h1>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={handleNewChat}
+          aria-label="Start new chat"
+          className="absolute right-5 top-14 w-10 h-10 rounded-xl flex items-center justify-center text-zinc-400 hover:text-[#CCFF00] transition-colors"
+        >
+          <MessageSquarePlus size={20} strokeWidth={2} />
+        </motion.button>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-3 pb-4">
@@ -151,28 +183,31 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
             <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                msg.role === 'user' ? 'bg-primary/10' : 'bg-muted'
+                msg.role === 'user' ? 'bg-[#CCFF00]/10' : 'bg-[#1A1A1A] border border-white/5'
               }`}>
-                {msg.role === 'user' ? <User size={14} className="text-primary" /> : <Bot size={14} className="text-primary" />}
+                {msg.role === 'user' ? <User size={14} className="text-[#CCFF00]" /> : <Bot size={14} className="text-[#CCFF00]" />}
               </div>
-              <div className="max-w-[80%] space-y-2">
-                <div className={`p-4 text-sm leading-relaxed ${
+              <div className="max-w-[85%] space-y-2">
+                <div className={
                   msg.role === 'user'
-                    ? 'bg-primary/10 border border-primary/15 text-foreground rounded-3xl'
-                    : 'bg-white/10 backdrop-blur-md border border-white/10 text-foreground/95 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.35)]'
-                }`}>
-                  <div className="prose prose-sm prose-invert max-w-none [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:text-primary [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm">
+                    ? 'bg-[#CCFF00] text-black rounded-2xl rounded-tr-sm p-4 text-sm font-medium'
+                    : 'bg-[#1A1A1A] border border-white/5 text-white rounded-2xl rounded-tl-sm p-4 text-sm'
+                }>
+                  <div className={`prose prose-sm max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm ${
+                    msg.role === 'user'
+                      ? '[&_*]:text-black [&_strong]:text-black [&_a]:text-black'
+                      : 'prose-invert [&_strong]:text-[#CCFF00]'
+                  }`}>
                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </div>
                 </div>
-                {/* Accept Plan button for AI diet/meal plan messages */}
                 {msg.role === 'model' && msg.id !== '1' && onAcceptPlan && extractCalorieTarget(msg.text) && (
                   <motion.button
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleAcceptPlan(msg.text)}
-                    className="ml-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 hover:bg-primary/15 transition-colors"
+                    className="ml-2 px-4 py-2 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 text-[#CCFF00] text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 hover:bg-[#CCFF00]/15 transition-colors"
                   >
                     <Check size={12} /> Accept Plan
                   </motion.button>
@@ -184,13 +219,13 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
 
         {isTyping && messages[messages.length - 1]?.role !== 'model' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center">
-              <Sparkles size={14} className="text-primary animate-pulse" />
+            <div className="w-8 h-8 rounded-xl bg-[#1A1A1A] border border-white/5 flex items-center justify-center">
+              <Sparkles size={14} className="text-[#CCFF00] animate-pulse" />
             </div>
-            <div className="glass-card rounded-3xl p-4 flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl rounded-tl-sm p-4 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#CCFF00]/50 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </motion.div>
         )}
@@ -215,7 +250,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ onAcceptPlan }) => {
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
             aria-label="Send message"
-            className="w-11 h-11 rounded-2xl bg-[#CCFF00] text-black flex items-center justify-center disabled:opacity-30 disabled:shadow-none shadow-[0_0_22px_rgba(204,255,0,0.45)] transition-all active:shadow-[0_0_12px_rgba(204,255,0,0.6)]"
+            className="w-11 h-11 rounded-2xl bg-[#CCFF00] text-black flex items-center justify-center disabled:opacity-30 transition-all"
           >
             <Send size={16} strokeWidth={2.5} />
           </motion.button>
