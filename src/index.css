@@ -160,3 +160,13 @@
     100% { transform: scale(1.3); opacity: 0; }
   }
 }
+
+/* Hide the injected "Edit with Lovable" / "Made with Lovable" badge on published deployments */
+#lovable-badge,
+a[href*="lovable.dev"][target="_blank"],
+a[aria-label*="Lovable" i],
+[data-lovable-badge] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
