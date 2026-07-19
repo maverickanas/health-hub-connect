@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight, Check, Circle } from 'lucide-react';
 import { toast } from 'sonner';
 import Logo from './Logo';
 
