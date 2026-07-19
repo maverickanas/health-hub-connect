@@ -151,6 +151,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onSignUp, onGoogle })
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 group-focus-within:text-[#CCFF00] transition-colors" />
                 <input
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   value={password}
