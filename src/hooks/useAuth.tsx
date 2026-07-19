@@ -17,11 +17,9 @@ interface AuthContextValue {
   profile: AuthProfile | null;
   profileLoading: boolean;
   refetchProfile: () => Promise<AuthProfile | null>;
-  /** Sends a 6-digit email OTP (Supabase signInWithOtp). */
-  sendEmailOtp: (email: string) => Promise<void>;
-  /** Verifies the 6-digit email OTP and creates a session. */
-  verifyEmailOtp: (email: string, token: string) => Promise<void>;
-  signInAsGuest: () => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUpWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -132,30 +130,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [loadProfile]);
 
-  const sendEmailOtp = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
+  const signInWithPassword = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signUpWithPassword = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({
       email,
-      options: {
-        // Create the auth user on first OTP request (passwordless flow).
-        shouldCreateUser: true,
-        emailRedirectTo: window.location.origin,
-      },
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/` },
     });
     if (error) throw error;
   };
 
-  const verifyEmailOtp = async (email: string, token: string) => {
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'email',
+  const signInWithGoogle = async () => {
+    const { lovable } = await import('@/integrations/lovable');
+    const result = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
     });
-    if (error) throw error;
-  };
-
-  const signInAsGuest = async () => {
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) throw error;
+    if (result.error) throw result.error instanceof Error ? result.error : new Error(String(result.error));
   };
 
   const signOut = async () => {
@@ -164,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, profile, profileLoading, refetchProfile, sendEmailOtp, verifyEmailOtp, signInAsGuest, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, profile, profileLoading, refetchProfile, signInWithPassword, signUpWithPassword, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );
