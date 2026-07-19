@@ -17,12 +17,10 @@ interface AuthContextValue {
   profile: AuthProfile | null;
   profileLoading: boolean;
   refetchProfile: () => Promise<AuthProfile | null>;
-  /** Email + password login. */
-  signInWithPassword: (email: string, password: string) => Promise<void>;
-  /** Create account with email + password. Triggers signup confirmation OTP email. */
-  signUpWithPassword: (email: string, password: string) => Promise<void>;
-  /** Verify the 6-digit signup confirmation OTP. */
-  verifySignupOtp: (email: string, token: string) => Promise<void>;
+  /** Sends a 6-digit email OTP (Supabase signInWithOtp). */
+  sendEmailOtp: (email: string) => Promise<void>;
+  /** Verifies the 6-digit email OTP and creates a session. */
+  verifyEmailOtp: (email: string, token: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -134,22 +132,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [loadProfile]);
 
-  const signInWithPassword = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  };
-
-  const signUpWithPassword = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+  const sendEmailOtp = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
-      options: { emailRedirectTo: window.location.origin },
+      options: {
+        // Create the auth user on first OTP request (passwordless flow).
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin,
+      },
     });
     if (error) throw error;
   };
 
-  const verifySignupOtp = async (email: string, token: string) => {
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+  const verifyEmailOtp = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
     if (error) throw error;
   };
 
@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, profile, profileLoading, refetchProfile, signInWithPassword, signUpWithPassword, verifySignupOtp, signInAsGuest, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, profile, profileLoading, refetchProfile, sendEmailOtp, verifyEmailOtp, signInAsGuest, signOut }}>
       {children}
     </AuthContext.Provider>
   );
