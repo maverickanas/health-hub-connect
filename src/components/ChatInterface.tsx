@@ -567,12 +567,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
                 </button>
               </div>
 
-              <button
-                onClick={handleNewChat}
-                className="mx-4 mt-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 text-[#CCFF00] text-xs font-bold uppercase tracking-widest hover:bg-[#CCFF00]/15 transition-colors"
-              >
-                <MessageSquarePlus size={14} /> New Chat
-              </button>
+              <div className="mx-4 mt-4 flex items-center gap-2">
+                <button
+                  onClick={handleNewChat}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 text-[#CCFF00] text-xs font-bold uppercase tracking-widest hover:bg-[#CCFF00]/15 transition-colors"
+                >
+                  <MessageSquarePlus size={14} /> New Chat
+                </button>
+                <button
+                  onClick={() => {
+                    if (!activeSessionId) {
+                      toast.error('Select a chat to resync');
+                      return;
+                    }
+                    loadSession(activeSessionId);
+                    toast.success('Resyncing chat…');
+                  }}
+                  disabled={!activeSessionId || loadingMessages}
+                  aria-label="Resync selected chat"
+                  title="Resync chat"
+                  className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-zinc-300 hover:text-[#CCFF00] hover:border-[#CCFF00]/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw size={14} className={loadingMessages ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
 
               <div className="mx-4 mt-3 relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
