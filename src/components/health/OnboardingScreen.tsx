@@ -339,16 +339,18 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
                     ]}
                   />
                 </NeonField>
-                <NeonField label="Target Weight" unit="kg">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={data.targetWeightKg}
-                    onChange={e => set('targetWeightKg', e.target.value)}
-                    placeholder="68"
-                    className={inputClass}
-                  />
-                </NeonField>
+                {data.fitnessGoal !== 'Maintain' && data.fitnessGoal !== '' && (
+                  <NeonField label="Target Weight" unit="kg">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={data.targetWeightKg}
+                      onChange={e => set('targetWeightKg', e.target.value)}
+                      placeholder={data.fitnessGoal === 'Weight Loss' ? '68' : '78'}
+                      className={inputClass}
+                    />
+                  </NeonField>
+                )}
               </>
             )}
           </motion.div>
