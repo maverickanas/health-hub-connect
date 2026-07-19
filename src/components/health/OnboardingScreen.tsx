@@ -196,6 +196,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
   const meta = STEP_META[step];
   const isLast = step === TOTAL - 1;
 
+  if (hydrating) {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-[#0A0A0A]">
+        <Loader2 size={22} className="text-[#CCFF00] animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] w-full flex flex-col bg-[#0A0A0A] relative overflow-hidden">
       {/* Ambient glow */}
