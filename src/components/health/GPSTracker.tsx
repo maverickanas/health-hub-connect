@@ -436,7 +436,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       {/* Right-side FAB stack — floats just above the compact bottom panel */}
       <div
         className="absolute right-4 z-[1000] flex flex-col gap-2.5"
-        style={{ bottom: 'calc(6.25rem + env(safe-area-inset-bottom, 0px) + 210px)' }}
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px) + 210px)' }}
       >
         <button
           onClick={() => setRecenterTrigger(t => t + 1)}
