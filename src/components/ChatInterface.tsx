@@ -91,7 +91,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
     setLoadingSessions(false);
   }, [userId]);
 
-  // Initial load: fetch sessions, open most recent (or start new)
+  // Initial load: always start with a fresh chat. Fetch session list for the drawer,
+  // but do NOT auto-resume the most recent conversation. Past chats are accessible
+  // only via manual selection in the History Drawer.
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -101,13 +103,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
         .select('id, title, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      const rows = (data ?? []) as ChatSessionRow[];
-      setSessions(rows);
+      setSessions((data ?? []) as ChatSessionRow[]);
       setLoadingSessions(false);
-      if (rows.length > 0) {
-        await loadSession(rows[0].id);
-      }
     })();
+    // Always fresh slate on mount / remount.
+    handleNewChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
