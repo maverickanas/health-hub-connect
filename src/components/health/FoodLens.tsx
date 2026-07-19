@@ -163,6 +163,9 @@ const FoodLens: React.FC<FoodLensProps> = ({ onFoodLogged }) => {
             autoPlay
             playsInline
             muted
+            onLoadedMetadata={() => videoRef.current?.play().catch(() => {})}
+            onPlay={() => setIsInitializing(false)}
+            onLoadedData={() => setIsInitializing(false)}
             className="absolute inset-0 w-full h-full object-cover z-0"
           />
         )}
