@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,6 +87,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [hydrating, setHydrating] = useState(true);
   const [data, setData] = useState<FormData>({
     fullName: userName && userName !== 'Elite' ? userName : '',
     age: '',
@@ -97,6 +98,40 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
     fitnessGoal: '',
     targetWeightKg: '',
   });
+
+  // Prefill from existing profile row (if any)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: row, error } = await supabase
+          .from('profiles')
+          .select('display_name, age, gender, height, weight, activity_level, fitness_goal, target_weight')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (error) throw error;
+        if (cancelled || !row) return;
+        const allowedGender = ['Male', 'Female'];
+        const allowedActivity = ['Sedentary', 'Light', 'Active', 'Athlete'];
+        const allowedGoal = ['Weight Loss', 'Maintain', 'Muscle Gain'];
+        setData(prev => ({
+          fullName: row.display_name && row.display_name !== 'Elite' ? row.display_name : prev.fullName,
+          age: row.age != null ? String(row.age) : prev.age,
+          gender: allowedGender.includes(row.gender ?? '') ? (row.gender as Gender) : prev.gender,
+          heightCm: row.height != null ? String(row.height) : prev.heightCm,
+          massKg: row.weight != null ? String(row.weight) : prev.massKg,
+          activityLevel: allowedActivity.includes(row.activity_level ?? '') ? (row.activity_level as Activity) : prev.activityLevel,
+          fitnessGoal: allowedGoal.includes(row.fitness_goal ?? '') ? (row.fitness_goal as Goal) : prev.fitnessGoal,
+          targetWeightKg: (row as any).target_weight != null ? String((row as any).target_weight) : prev.targetWeightKg,
+        }));
+      } catch {
+        // silent — user can still fill manually
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
 
   const set = <K extends keyof FormData>(k: K, v: FormData[K]) =>
     setData(prev => ({ ...prev, [k]: v }));
@@ -160,6 +195,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userName, o
   const progressPct = ((step + 1) / TOTAL) * 100;
   const meta = STEP_META[step];
   const isLast = step === TOTAL - 1;
+
+  if (hydrating) {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-[#0A0A0A]">
+        <Loader2 size={22} className="text-[#CCFF00] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] w-full flex flex-col bg-[#0A0A0A] relative overflow-hidden">
