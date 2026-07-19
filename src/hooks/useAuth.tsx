@@ -72,7 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase
         .from('profiles')
         .upsert(
-          { user_id: u.id, display_name: displayName },
+          // Explicit NULLs override the DB column defaults so brand-new users
+          // are correctly flagged as needing onboarding by the gatekeeper.
+          { user_id: u.id, display_name: displayName, height: null, weight: null, age: null, gender: null },
           { onConflict: 'user_id', ignoreDuplicates: true }
         );
       if (error) console.error('[AuthProvider] ensureProfileRow upsert failed:', error);
