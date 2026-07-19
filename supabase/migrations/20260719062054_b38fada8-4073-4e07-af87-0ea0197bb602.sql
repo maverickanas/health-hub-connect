@@ -1,0 +1,4 @@
+ALTER TABLE public.profiles ALTER COLUMN height DROP DEFAULT;
+ALTER TABLE public.profiles ALTER COLUMN weight DROP DEFAULT;
+ALTER TABLE public.profiles ALTER COLUMN age DROP DEFAULT;
+ALTER TABLE public.profiles ALTER COLUMN gender DROP DEFAULT;
