@@ -493,6 +493,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAcceptPlan }) => {
 
   return (
     <div className="h-full w-full flex flex-col bg-[#050505] relative">
+      {deletedToastOpen && (
+        <ChatDeletedToast onClose={() => setDeletedToastOpen(false)} />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 border-b border-white/5">
         <motion.button
