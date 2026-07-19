@@ -19,43 +19,39 @@ const NAV_ITEMS = [
 const Navigation: React.FC<NavigationProps> = ({ currentView, setView }) => {
   return (
     <nav
-      className="fixed bottom-0 left-0 w-full z-[100] bg-[#0A0A0A]/90 backdrop-blur-lg border-t border-white/5"
+      className="fixed bottom-0 left-0 w-full z-50 bg-[#0A0A0A]/85 backdrop-blur-xl border-t border-white/5"
       aria-label="Primary"
     >
-      {/* Inner container: internal safe-area padding keeps the glassmorphic bg
-          extending fully to the bottom edge while icons clear the iOS home indicator. */}
-      <div className="flex justify-around items-end h-16 px-2 pb-[env(safe-area-inset-bottom,0px)]">
+      <div
+        className="flex justify-around items-center px-2 pt-3 pb-4"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+      >
         {NAV_ITEMS.map(({ view, icon: Icon, label }) => {
           const isActive = currentView === view;
           return (
             <motion.button
               key={view}
               onClick={() => setView(view)}
-              whileTap={{ scale: 0.88 }}
+              whileTap={{ scale: 0.9 }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={label}
-              className="relative flex flex-col items-center gap-1 flex-1 py-2"
+              className="flex flex-col items-center gap-1 flex-1"
             >
               <Icon
                 size={22}
-                strokeWidth={isActive ? 2.5 : 1.75}
-                className={`transition-colors duration-200 ${isActive ? 'text-[#CCFF00]' : 'text-zinc-500'}`}
-                style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(204,255,0,0.55))' } : undefined}
+                strokeWidth={isActive ? 2.25 : 1.75}
+                fill={isActive ? 'currentColor' : 'none'}
+                className={`transition-colors duration-200 ${
+                  isActive ? 'text-[#CCFF00]' : 'text-zinc-500 hover:text-zinc-400'
+                }`}
               />
               <span
-                className={`text-[8px] font-extrabold uppercase tracking-[0.18em] transition-colors duration-200 ${
-                  isActive ? 'text-[#CCFF00]' : 'text-zinc-500'
+                className={`text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 ${
+                  isActive ? 'text-[#CCFF00]' : 'text-zinc-500 hover:text-zinc-400'
                 }`}
               >
                 {label}
               </span>
-              {isActive && (
-                <motion.span
-                  layoutId="nav-active-dot"
-                  className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[#CCFF00] shadow-[0_0_8px_#CCFF00]"
-                  transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-                />
-              )}
             </motion.button>
           );
         })}
