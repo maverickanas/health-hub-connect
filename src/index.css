@@ -161,12 +161,28 @@
   }
 }
 
-/* Hide the injected "Edit with Lovable" / "Made with Lovable" badge on published deployments */
+/* Hide the injected "Edit with Lovable" / "Made with Lovable" badge on published deployments.
+   Uses position/size collapse so no layout gap remains. */
 #lovable-badge,
-a[href*="lovable.dev"][target="_blank"],
+[id^="lovable-badge"],
+[class*="lovable-badge" i],
+[data-lovable-badge],
+a[href*="lovable.dev"],
+a[href*="lovable.app"][target="_blank"][rel*="noopener"],
 a[aria-label*="Lovable" i],
-[data-lovable-badge] {
+a[title*="Lovable" i],
+iframe[src*="lovable.dev"] {
   display: none !important;
   visibility: hidden !important;
+  opacity: 0 !important;
   pointer-events: none !important;
+  position: fixed !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
 }
