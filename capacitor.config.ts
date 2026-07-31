@@ -12,7 +12,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const isDev = process.env.CAP_ENV === 'dev';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.610472d1765f411983281e3c15720a01',
+  appId: 'app.healthyhub.mobile',
   appName: 'Healthy Hub',
   webDir: 'dist',
   ...(isDev
