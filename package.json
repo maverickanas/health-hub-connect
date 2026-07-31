@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "android:release": "vite build && cap sync android && cd android && ./gradlew clean assembleRelease",
+    "android:bundle": "vite build && cap sync android && cd android && ./gradlew clean bundleRelease"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",

@@ -1,10 +1,28 @@
 apply plugin: 'com.android.application'
 
+// ---------------------------------------------------------------------------
+// Release signing configuration
+// Credentials are read from android/keystore.properties (git-ignored) or, as a
+// fallback, from environment variables so CI can build signed artifacts too.
+// See android/keystore.properties.example for the expected format.
+// ---------------------------------------------------------------------------
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def ksStoreFile = keystoreProperties['storeFile'] ?: System.getenv('ANDROID_KEYSTORE_FILE')
+def ksStorePassword = keystoreProperties['storePassword'] ?: System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def ksKeyAlias = keystoreProperties['keyAlias'] ?: System.getenv('ANDROID_KEY_ALIAS')
+def ksKeyPassword = keystoreProperties['keyPassword'] ?: System.getenv('ANDROID_KEY_PASSWORD')
+def hasReleaseSigning = ksStoreFile != null && ksStorePassword != null && ksKeyAlias != null && ksKeyPassword != null
+
 android {
     namespace "com.example.myapp"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.example.myapp"
+        applicationId "app.healthyhub.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -16,10 +34,38 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(ksStoreFile)
+                storePassword ksStorePassword
+                keyAlias ksKeyAlias
+                keyPassword ksKeyPassword
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn("No release keystore found - 'assembleRelease' will produce an UNSIGNED apk. " +
+                        "Create android/keystore.properties (see keystore.properties.example).")
+            }
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            if (variant.buildType.name == 'release') {
+                outputFileName = "app-release.apk"
+            }
         }
     }
 }
