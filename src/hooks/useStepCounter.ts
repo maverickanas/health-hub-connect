@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
 
 interface StepCounterState {
   steps: number;
@@ -93,6 +94,9 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     handlerRef.current = handleMotion;
     window.addEventListener('devicemotion', handleMotion);
     setState(prev => ({ ...prev, isActive: true }));
+    // Ongoing notification keeps the app alive in the background on native.
+    requestNotificationPermission().catch(() => {});
+    showStepNotification(stepsRef.current);
   }, [state.permissionState, requestPermission, handleMotion]);
 
   const persistSteps = useCallback(async (sessionSteps: number) => {
@@ -133,6 +137,7 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
     const sessionSteps = stepsRef.current;
     setState(prev => ({ ...prev, isActive: false }));
+    clearStepNotification();
     await persistSteps(sessionSteps);
     // Auto-reset local tracker so the next session starts fresh from 0
     stepsRef.current = 0;
@@ -177,11 +182,19 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
   }, [state.steps, onStepUpdate]);
 
+  // Keep the ongoing notification in sync (throttled to every 10 steps)
+  useEffect(() => {
+    if (state.isActive && state.steps > 0 && state.steps % 10 === 0) {
+      showStepNotification(state.steps);
+    }
+  }, [state.isActive, state.steps]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (handlerRef.current) {
         window.removeEventListener('devicemotion', handlerRef.current);
+        clearStepNotification();
       }
     };
   }, []);
