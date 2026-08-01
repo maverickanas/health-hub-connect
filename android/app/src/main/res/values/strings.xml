@@ -1,7 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">My-App</string>
-    <string name="title_activity_main">My-App</string>
-    <string name="package_name">com.example.myapp</string>
-    <string name="custom_url_scheme">com.example.myapp</string>
+    <string name="app_name">Healthy Hub</string>
+    <string name="title_activity_main">Healthy Hub</string>
+    <string name="package_name">app.healthyhub.mobile</string>
+    <string name="custom_url_scheme">app.healthyhub.mobile</string>
+
+    <!-- Background geolocation foreground-service notification -->
+    <string name="capacitor_background_geolocation_notification_channel_name">Live Workout Tracking</string>
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_stat_healthyhub</string>
+    <string name="capacitor_background_geolocation_notification_color">#CCFF00</string>
 </resources>

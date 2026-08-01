@@ -10,6 +10,7 @@
  * to import unconditionally from src/main.tsx.
  */
 import { Capacitor } from '@capacitor/core';
+import { requestAppPermissions } from './nativePermissions';
 
 export async function initNativeShell() {
   if (!Capacitor.isNativePlatform()) return;
@@ -61,6 +62,9 @@ export async function initNativeShell() {
         new CustomEvent('native:network', { detail: status }),
       );
     });
+
+    // Ask for all runtime permissions the app needs (notifications, location, motion).
+    requestAppPermissions().catch(() => {});
 
     // Dismiss splash after first paint.
     requestAnimationFrame(() => {
