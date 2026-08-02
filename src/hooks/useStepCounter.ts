@@ -96,6 +96,9 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     setState(prev => ({ ...prev, isActive: true }));
     // Ongoing notification keeps the app alive in the background on native.
     requestNotificationPermission().catch(() => {});
+    // Doze/App Standby exemption — without it the sensor stream and the
+    // notification stop updating shortly after the screen turns off.
+    requestBatteryOptimizationExemption().catch(() => {});
     showStepNotification(stepsRef.current);
   }, [state.permissionState, requestPermission, handleMotion]);
 
