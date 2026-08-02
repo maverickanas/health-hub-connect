@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
+import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
 
 interface StepCounterState {
   steps: number;
