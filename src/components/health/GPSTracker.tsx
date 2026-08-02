@@ -200,6 +200,9 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const beginWorkout = () => {
     setWorkoutState('active');
     setElapsed(0); setDistance(0); setPoints([]); lastPointRef.current = null;
+    // Notification + Doze exemption keep the session alive with the screen off.
+    requestNotificationPermission().catch(() => {});
+    requestBatteryOptimizationExemption().catch(() => {});
     startGPS(); startTimer();
   };
 
