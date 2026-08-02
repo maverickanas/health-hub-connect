@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
+import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
 
 interface StepCounterState {
   steps: number;
@@ -96,6 +97,9 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     setState(prev => ({ ...prev, isActive: true }));
     // Ongoing notification keeps the app alive in the background on native.
     requestNotificationPermission().catch(() => {});
+    // Doze/App Standby exemption — without it the sensor stream and the
+    // notification stop updating shortly after the screen turns off.
+    requestBatteryOptimizationExemption().catch(() => {});
     showStepNotification(stepsRef.current);
   }, [state.permissionState, requestPermission, handleMotion]);
 
@@ -188,6 +192,15 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       showStepNotification(state.steps);
     }
   }, [state.isActive, state.steps]);
+
+  // Heartbeat: refresh the ongoing notification every 15s even when the step
+  // count is unchanged, so it stays "live" while the screen is off.
+  useEffect(() => {
+    if (!state.isActive) return;
+    const id = setInterval(() => showStepNotification(stepsRef.current), 15000);
+    return () => clearInterval(id);
+  }, [state.isActive]);
+
 
   // Cleanup on unmount
   useEffect(() => {

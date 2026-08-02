@@ -13,6 +13,8 @@ import RoutePlannerDrawer, { RouteData } from './RoutePlannerDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { startWatch, stopWatch, getCurrent, type GeoWatcherId } from '@/lib/backgroundGeo';
+import { showRouteNotification, clearRouteNotification, requestNotificationPermission } from '@/lib/liveNotification';
+import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
 import LocationPermissionSheet from './LocationPermissionSheet';
 
 interface GeoPoint {
@@ -198,6 +200,9 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
   const beginWorkout = () => {
     setWorkoutState('active');
     setElapsed(0); setDistance(0); setPoints([]); lastPointRef.current = null;
+    // Notification + Doze exemption keep the session alive with the screen off.
+    requestNotificationPermission().catch(() => {});
+    requestBatteryOptimizationExemption().catch(() => {});
     startGPS(); startTimer();
   };
 
@@ -252,7 +257,27 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
     }
   };
 
-  useEffect(() => () => { stopGPS(); stopTimer(); }, [stopGPS, stopTimer]);
+  useEffect(() => () => { stopGPS(); stopTimer(); clearRouteNotification(); }, [stopGPS, stopTimer]);
+
+  // Live route notification: refreshed every 5s (and on pause/resume) so the
+  // shade, lock screen and status-bar chip stay in sync with the workout.
+  useEffect(() => {
+    if (workoutState === 'idle') {
+      clearRouteNotification();
+      return;
+    }
+    const push = () =>
+      showRouteNotification({
+        distanceKm: distance,
+        seconds: elapsed,
+        calories: caloriesBurned,
+        paused: workoutState === 'paused',
+        mode: activityMode,
+      });
+    push();
+    const id = setInterval(push, 5000);
+    return () => clearInterval(id);
+  }, [workoutState, distance, elapsed, caloriesBurned, activityMode]);
 
   const checkGeolocation = useCallback(async () => {
     try {

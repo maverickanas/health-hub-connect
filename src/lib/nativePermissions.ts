@@ -5,18 +5,29 @@
  * - Notifications  → ongoing tracking notification (Android 13+ requires it)
  * - Location       → GPS route tracking, foreground + background
  * - Motion         → step counting (iOS DeviceMotion gate)
+ * - Battery        → Doze exemption so tracking survives a locked screen
  */
 import { Capacitor } from '@capacitor/core';
 import { requestNotificationPermission } from './liveNotification';
+import {
+  isBatteryOptimizationDisabled,
+  requestBatteryOptimizationExemption,
+} from './batteryOptimization';
 
 export interface PermissionReport {
   notifications: boolean;
   location: boolean;
   motion: boolean;
+  battery: boolean;
 }
 
 export async function requestAppPermissions(): Promise<PermissionReport> {
-  const report: PermissionReport = { notifications: false, location: false, motion: false };
+  const report: PermissionReport = {
+    notifications: false,
+    location: false,
+    motion: false,
+    battery: false,
+  };
 
   const native = (() => {
     try {
@@ -50,5 +61,18 @@ export async function requestAppPermissions(): Promise<PermissionReport> {
     report.motion = false;
   }
 
+  // Asked last: it opens a full-screen system dialog, so it must not interrupt
+  // the earlier in-line permission prompts.
+  try {
+    report.battery = await requestBatteryOptimizationExemption();
+  } catch {
+    report.battery = false;
+  }
+
   return report;
+}
+
+/** Re-check (without prompting) whether background execution is unrestricted. */
+export async function checkBackgroundExecutionAllowed(): Promise<boolean> {
+  return isBatteryOptimizationDisabled();
 }

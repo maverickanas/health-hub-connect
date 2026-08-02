@@ -52,8 +52,8 @@ export async function startWatch(
       const BackgroundGeolocation = await getNativePlugin();
       const id = await BackgroundGeolocation.addWatcher(
         {
-          backgroundMessage: 'Tracking your workout in the background',
-          backgroundTitle: 'HEALTHY.HUB · Workout in progress',
+          backgroundMessage: 'Live distance, pace and calories · tap to open',
+          backgroundTitle: 'Healthy Hub · Route tracking',
           requestPermissions: true,
           stale: false,
           distanceFilter: 3, // meters
