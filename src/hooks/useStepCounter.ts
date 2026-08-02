@@ -193,6 +193,15 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
   }, [state.isActive, state.steps]);
 
+  // Heartbeat: refresh the ongoing notification every 15s even when the step
+  // count is unchanged, so it stays "live" while the screen is off.
+  useEffect(() => {
+    if (!state.isActive) return;
+    const id = setInterval(() => showStepNotification(stepsRef.current), 15000);
+    return () => clearInterval(id);
+  }, [state.isActive]);
+
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
