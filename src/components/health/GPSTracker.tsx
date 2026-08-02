@@ -257,7 +257,27 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
     }
   };
 
-  useEffect(() => () => { stopGPS(); stopTimer(); }, [stopGPS, stopTimer]);
+  useEffect(() => () => { stopGPS(); stopTimer(); clearRouteNotification(); }, [stopGPS, stopTimer]);
+
+  // Live route notification: refreshed every 5s (and on pause/resume) so the
+  // shade, lock screen and status-bar chip stay in sync with the workout.
+  useEffect(() => {
+    if (workoutState === 'idle') {
+      clearRouteNotification();
+      return;
+    }
+    const push = () =>
+      showRouteNotification({
+        distanceKm: distance,
+        seconds: elapsed,
+        calories: caloriesBurned,
+        paused: workoutState === 'paused',
+        mode: activityMode,
+      });
+    push();
+    const id = setInterval(push, 5000);
+    return () => clearInterval(id);
+  }, [workoutState, distance, elapsed, caloriesBurned, activityMode]);
 
   const checkGeolocation = useCallback(async () => {
     try {
