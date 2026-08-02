@@ -13,6 +13,8 @@ import RoutePlannerDrawer, { RouteData } from './RoutePlannerDrawer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { startWatch, stopWatch, getCurrent, type GeoWatcherId } from '@/lib/backgroundGeo';
+import { showRouteNotification, clearRouteNotification, requestNotificationPermission } from '@/lib/liveNotification';
+import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
 import LocationPermissionSheet from './LocationPermissionSheet';
 
 interface GeoPoint {
