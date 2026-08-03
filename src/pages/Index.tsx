@@ -12,11 +12,13 @@ import FoodLens from '@/components/health/FoodLens';
 import GPSTracker from '@/components/health/GPSTracker';
 import ChatInterface from '@/components/ChatInterface';
 import ProfileScreen from '@/components/health/ProfileScreen';
-import Navigation from '@/components/health/Navigation';
+import Navigation, { ONLINE_ONLY_VIEWS } from '@/components/health/Navigation';
+import OfflineGate from '@/components/health/OfflineGate';
+import useOnline from '@/hooks/useOnline';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
 import PreparingAccountOverlay from '@/components/health/PreparingAccountOverlay';
 import RoutingDebugBanner from '@/components/health/RoutingDebugBanner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMPTY_ACTIVITY: ActivityData = {
