@@ -37,6 +37,16 @@ const isFilledNumber = (v: unknown): boolean => {
 const Index = () => {
   const { user, loading, profile, profileLoading, refetchProfile, signInWithPassword, signUpWithPassword, signInWithGoogle, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
+  const online = useOnline();
+
+  // Block navigation into online-only tabs while offline.
+  const handleSetView = useCallback((view: ViewState) => {
+    if (!online && ONLINE_ONLY_VIEWS.includes(view)) {
+      toast.info('This section needs an internet connection.');
+      return;
+    }
+    setCurrentView(view);
+  }, [online]);
 
   const [isTracking, setIsTracking] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
