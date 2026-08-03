@@ -156,6 +156,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // Native APK: the WebView origin (https://localhost) is not allowlisted by
+    // the OAuth broker (403), so route through the published origin + deep link.
+    const { isNative, signInWithGoogleNative } = await import('@/lib/nativeAuth');
+    if (isNative()) {
+      await signInWithGoogleNative();
+      return;
+    }
     const { lovable } = await import('@/integrations/lovable');
     const result = await lovable.auth.signInWithOAuth('google', {
       redirect_uri: window.location.origin,
