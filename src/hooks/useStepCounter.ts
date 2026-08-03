@@ -3,6 +3,12 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
 import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
+import {
+  nativeTrackingAvailable,
+  startNativeWorkout,
+  stopNativeWorkout,
+  onWorkoutUpdate,
+} from '@/lib/backgroundTracker';
 
 interface StepCounterState {
   steps: number;
