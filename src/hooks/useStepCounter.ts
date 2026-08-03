@@ -3,6 +3,12 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
 import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
+import {
+  nativeTrackingAvailable,
+  startNativeWorkout,
+  stopNativeWorkout,
+  onWorkoutUpdate,
+} from '@/lib/backgroundTracker';
 
 interface StepCounterState {
   steps: number;
@@ -37,6 +43,7 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   const lastStepTimeRef = useRef(0);
   const aboveThresholdRef = useRef(false);
   const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
+  const nativeUnsubRef = useRef<(() => void) | null>(null);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     const acc = event.accelerationIncludingGravity;
@@ -92,14 +99,30 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       const ok = await requestPermission();
       if (!ok) return;
     }
-    handlerRef.current = handleMotion;
-    window.addEventListener('devicemotion', handleMotion);
-    setState(prev => ({ ...prev, isActive: true }));
     // Ongoing notification keeps the app alive in the background on native.
     requestNotificationPermission().catch(() => {});
     // Doze/App Standby exemption — without it the sensor stream and the
     // notification stop updating shortly after the screen turns off.
     requestBatteryOptimizationExemption().catch(() => {});
+
+    // Preferred path: hardware pedometer inside the foreground service. The JS
+    // thread can be frozen and the count keeps advancing natively.
+    if (await nativeTrackingAvailable()) {
+      const started = await startNativeWorkout();
+      if (started) {
+        nativeUnsubRef.current = await onWorkoutUpdate(u => {
+          stepsRef.current = u.steps;
+          setState(prev => ({ ...prev, steps: u.steps, isActive: u.event !== 'stop' }));
+        });
+        setState(prev => ({ ...prev, isActive: true }));
+        return;
+      }
+    }
+
+    // Web / no-pedometer fallback: DeviceMotion in the JS thread.
+    handlerRef.current = handleMotion;
+    window.addEventListener('devicemotion', handleMotion);
+    setState(prev => ({ ...prev, isActive: true }));
     showStepNotification(stepsRef.current);
   }, [state.permissionState, requestPermission, handleMotion]);
 
@@ -139,6 +162,11 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       window.removeEventListener('devicemotion', handlerRef.current);
       handlerRef.current = null;
     }
+    if (nativeUnsubRef.current) {
+      nativeUnsubRef.current();
+      nativeUnsubRef.current = null;
+    }
+    await stopNativeWorkout();
     const sessionSteps = stepsRef.current;
     setState(prev => ({ ...prev, isActive: false }));
     clearStepNotification();
