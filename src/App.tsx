@@ -21,6 +21,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/auth/native" element={<NativeAuth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
