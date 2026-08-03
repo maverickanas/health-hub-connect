@@ -162,6 +162,11 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       window.removeEventListener('devicemotion', handlerRef.current);
       handlerRef.current = null;
     }
+    if (nativeUnsubRef.current) {
+      nativeUnsubRef.current();
+      nativeUnsubRef.current = null;
+    }
+    await stopNativeWorkout();
     const sessionSteps = stepsRef.current;
     setState(prev => ({ ...prev, isActive: false }));
     clearStepNotification();
