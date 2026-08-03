@@ -92,14 +92,30 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       const ok = await requestPermission();
       if (!ok) return;
     }
-    handlerRef.current = handleMotion;
-    window.addEventListener('devicemotion', handleMotion);
-    setState(prev => ({ ...prev, isActive: true }));
     // Ongoing notification keeps the app alive in the background on native.
     requestNotificationPermission().catch(() => {});
     // Doze/App Standby exemption — without it the sensor stream and the
     // notification stop updating shortly after the screen turns off.
     requestBatteryOptimizationExemption().catch(() => {});
+
+    // Preferred path: hardware pedometer inside the foreground service. The JS
+    // thread can be frozen and the count keeps advancing natively.
+    if (await nativeTrackingAvailable()) {
+      const started = await startNativeWorkout();
+      if (started) {
+        nativeUnsubRef.current = await onWorkoutUpdate(u => {
+          stepsRef.current = u.steps;
+          setState(prev => ({ ...prev, steps: u.steps, isActive: u.event !== 'stop' }));
+        });
+        setState(prev => ({ ...prev, isActive: true }));
+        return;
+      }
+    }
+
+    // Web / no-pedometer fallback: DeviceMotion in the JS thread.
+    handlerRef.current = handleMotion;
+    window.addEventListener('devicemotion', handleMotion);
+    setState(prev => ({ ...prev, isActive: true }));
     showStepNotification(stepsRef.current);
   }, [state.permissionState, requestPermission, handleMotion]);
 
