@@ -22,6 +22,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Deep link used to hand Google OAuth tokens back into the app -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="healthyhub" android:host="auth" />
+            </intent-filter>
+
+
         </activity>
 
         <!-- Foreground service required by background-geolocation on Android 10+ -->

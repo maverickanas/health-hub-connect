@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "@/components/health/ErrorBoundary";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index.tsx";
+import NativeAuth from "./pages/NativeAuth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/auth/native" element={<NativeAuth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

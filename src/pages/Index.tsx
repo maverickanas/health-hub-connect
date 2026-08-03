@@ -12,11 +12,13 @@ import FoodLens from '@/components/health/FoodLens';
 import GPSTracker from '@/components/health/GPSTracker';
 import ChatInterface from '@/components/ChatInterface';
 import ProfileScreen from '@/components/health/ProfileScreen';
-import Navigation from '@/components/health/Navigation';
+import Navigation, { ONLINE_ONLY_VIEWS } from '@/components/health/Navigation';
+import OfflineGate from '@/components/health/OfflineGate';
+import useOnline from '@/hooks/useOnline';
 import WelcomeMotivation from '@/components/health/WelcomeMotivation';
 import PreparingAccountOverlay from '@/components/health/PreparingAccountOverlay';
 import RoutingDebugBanner from '@/components/health/RoutingDebugBanner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMPTY_ACTIVITY: ActivityData = {
@@ -35,6 +37,16 @@ const isFilledNumber = (v: unknown): boolean => {
 const Index = () => {
   const { user, loading, profile, profileLoading, refetchProfile, signInWithPassword, signUpWithPassword, signInWithGoogle, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
+  const online = useOnline();
+
+  // Block navigation into online-only tabs while offline.
+  const handleSetView = useCallback((view: ViewState) => {
+    if (!online && ONLINE_ONLY_VIEWS.includes(view)) {
+      toast.info('This section needs an internet connection.');
+      return;
+    }
+    setCurrentView(view);
+  }, [online]);
 
   const [isTracking, setIsTracking] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -51,9 +63,10 @@ const Index = () => {
     enabled: notificationsEnabled,
   });
 
-  // Load activity data
+  // Load activity data (offline → keep the locally cached snapshot as-is)
   useEffect(() => {
     if (!user) { setDataLoaded(true); return; }
+    if (!online) { setDataLoaded(true); return; }
     let isCancelled = false;
     const loadActivity = async () => {
       try {
@@ -72,14 +85,15 @@ const Index = () => {
           setActivityData(EMPTY_ACTIVITY);
         }
       } catch {
-        // ignore fetch errors
+        // ignore fetch errors — cached local data stays visible
       } finally {
         if (!isCancelled) setDataLoaded(true);
       }
     };
     loadActivity();
     return () => { isCancelled = true; };
-  }, [user]);
+  }, [user, online]);
+
 
   // Supabase Realtime subscription for cross-device sync
   useEffect(() => {
@@ -190,16 +204,46 @@ const Index = () => {
     setActivityData(EMPTY_ACTIVITY); setCurrentView(ViewState.HOME);
   };
 
+  // Offline-first write: cache the latest snapshot locally and only sync when
+  // a connection is available. The pending snapshot flushes on reconnect.
   const persistToDb = async (merged: ActivityData) => {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
-    await supabase.from('activity_data').upsert({
+    const row = {
       user_id: user.id, date: today, steps: merged.steps, calories: merged.calories,
       distance: merged.distance, hydration: merged.hydration, calories_consumed: merged.caloriesConsumed,
       step_goal: merged.stepGoal, calorie_goal: merged.calorieGoal,
       distance_goal: merged.distanceGoal, hydration_goal: merged.hydrationGoal,
-    }, { onConflict: 'user_id,date' });
+    };
+    if (!online) {
+      try { localStorage.setItem('hh_pending_activity', JSON.stringify(row)); } catch { /* quota */ }
+      return;
+    }
+    try {
+      await supabase.from('activity_data').upsert(row, { onConflict: 'user_id,date' });
+    } catch {
+      try { localStorage.setItem('hh_pending_activity', JSON.stringify(row)); } catch { /* quota */ }
+    }
   };
+
+  // Flush any offline-queued snapshot once back online.
+  useEffect(() => {
+    if (!online || !user) return;
+    const raw = localStorage.getItem('hh_pending_activity');
+    if (!raw) return;
+    (async () => {
+      try {
+        const row = JSON.parse(raw);
+        if (row?.user_id !== user.id) { localStorage.removeItem('hh_pending_activity'); return; }
+        const { error } = await supabase.from('activity_data').upsert(row, { onConflict: 'user_id,date' });
+        if (!error) {
+          localStorage.removeItem('hh_pending_activity');
+          toast.success('Offline activity synced.');
+        }
+      } catch { /* retry on next reconnect */ }
+    })();
+  }, [online, user]);
+
 
   const handleUpdateData = async (updates: Partial<ActivityData>) => {
     const merged = { ...activityData, ...updates };
@@ -325,6 +369,12 @@ const Index = () => {
       {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
+      {!online && (
+        <div className="flex items-center justify-center gap-2 bg-white/5 border-b border-white/10 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
+          <WifiOff size={12} className="text-primary" /> Offline mode
+        </div>
+      )}
+
       <main className="flex-1 relative w-full overflow-hidden pb-16">
         <AnimatePresence mode="wait">
           {currentView === ViewState.HOME && (
@@ -338,7 +388,9 @@ const Index = () => {
           )}
           {currentView === ViewState.LENS && (
             <motion.div key="lens" {...pageTransition} className="h-full w-full">
-              <FoodLens onFoodLogged={handleFoodLogged} />
+              {online
+                ? <FoodLens onFoodLogged={handleFoodLogged} />
+                : <OfflineGate feature="Food Lens" description="AI food scanning runs in the cloud. Reconnect to analyse meals — your steps, workouts and profile still work offline." />}
             </motion.div>
           )}
           {currentView === ViewState.TRACK && (
@@ -348,7 +400,9 @@ const Index = () => {
           )}
           {currentView === ViewState.COACH && (
             <motion.div key="coach" {...pageTransition} className="h-full w-full">
-              <ChatInterface onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
+              {online
+                ? <ChatInterface onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
+                : <OfflineGate feature="AI Coach" description="Coaching replies need a live connection. Reconnect to continue your conversation." />}
             </motion.div>
           )}
           {currentView === ViewState.ME && (
@@ -360,7 +414,7 @@ const Index = () => {
           )}
         </AnimatePresence>
       </main>
-      <Navigation currentView={currentView} setView={setCurrentView} />
+      <Navigation currentView={currentView} setView={handleSetView} online={online} />
     </div>
   );
 };
