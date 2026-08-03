@@ -204,16 +204,46 @@ const Index = () => {
     setActivityData(EMPTY_ACTIVITY); setCurrentView(ViewState.HOME);
   };
 
+  // Offline-first write: cache the latest snapshot locally and only sync when
+  // a connection is available. The pending snapshot flushes on reconnect.
   const persistToDb = async (merged: ActivityData) => {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
-    await supabase.from('activity_data').upsert({
+    const row = {
       user_id: user.id, date: today, steps: merged.steps, calories: merged.calories,
       distance: merged.distance, hydration: merged.hydration, calories_consumed: merged.caloriesConsumed,
       step_goal: merged.stepGoal, calorie_goal: merged.calorieGoal,
       distance_goal: merged.distanceGoal, hydration_goal: merged.hydrationGoal,
-    }, { onConflict: 'user_id,date' });
+    };
+    if (!online) {
+      try { localStorage.setItem('hh_pending_activity', JSON.stringify(row)); } catch { /* quota */ }
+      return;
+    }
+    try {
+      await supabase.from('activity_data').upsert(row, { onConflict: 'user_id,date' });
+    } catch {
+      try { localStorage.setItem('hh_pending_activity', JSON.stringify(row)); } catch { /* quota */ }
+    }
   };
+
+  // Flush any offline-queued snapshot once back online.
+  useEffect(() => {
+    if (!online || !user) return;
+    const raw = localStorage.getItem('hh_pending_activity');
+    if (!raw) return;
+    (async () => {
+      try {
+        const row = JSON.parse(raw);
+        if (row?.user_id !== user.id) { localStorage.removeItem('hh_pending_activity'); return; }
+        const { error } = await supabase.from('activity_data').upsert(row, { onConflict: 'user_id,date' });
+        if (!error) {
+          localStorage.removeItem('hh_pending_activity');
+          toast.success('Offline activity synced.');
+        }
+      } catch { /* retry on next reconnect */ }
+    })();
+  }, [online, user]);
+
 
   const handleUpdateData = async (updates: Partial<ActivityData>) => {
     const merged = { ...activityData, ...updates };
