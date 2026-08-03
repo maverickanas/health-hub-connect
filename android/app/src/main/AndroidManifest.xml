@@ -40,6 +40,15 @@
             android:enabled="true"
             android:exported="true" />
 
+        <!-- Persistent workout tracker: hardware pedometer + wakelock + live notification -->
+        <service
+            android:name=".WorkoutTrackingService"
+            android:foregroundServiceType="location|health"
+            android:enabled="true"
+            android:stopWithTask="false"
+            android:exported="false" />
+
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
