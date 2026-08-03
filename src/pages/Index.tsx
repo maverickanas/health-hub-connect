@@ -63,9 +63,10 @@ const Index = () => {
     enabled: notificationsEnabled,
   });
 
-  // Load activity data
+  // Load activity data (offline → keep the locally cached snapshot as-is)
   useEffect(() => {
     if (!user) { setDataLoaded(true); return; }
+    if (!online) { setDataLoaded(true); return; }
     let isCancelled = false;
     const loadActivity = async () => {
       try {
@@ -84,14 +85,15 @@ const Index = () => {
           setActivityData(EMPTY_ACTIVITY);
         }
       } catch {
-        // ignore fetch errors
+        // ignore fetch errors — cached local data stays visible
       } finally {
         if (!isCancelled) setDataLoaded(true);
       }
     };
     loadActivity();
     return () => { isCancelled = true; };
-  }, [user]);
+  }, [user, online]);
+
 
   // Supabase Realtime subscription for cross-device sync
   useEffect(() => {
