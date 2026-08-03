@@ -43,6 +43,7 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   const lastStepTimeRef = useRef(0);
   const aboveThresholdRef = useRef(false);
   const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
+  const nativeUnsubRef = useRef<(() => void) | null>(null);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     const acc = event.accelerationIncludingGravity;
