@@ -369,6 +369,12 @@ const Index = () => {
       {isPreparing && <PreparingAccountOverlay />}
       {showWelcome && <WelcomeMotivation userName={userName} onDismiss={() => setShowWelcome(false)} />}
 
+      {!online && (
+        <div className="flex items-center justify-center gap-2 bg-white/5 border-b border-white/10 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
+          <WifiOff size={12} className="text-primary" /> Offline mode
+        </div>
+      )}
+
       <main className="flex-1 relative w-full overflow-hidden pb-16">
         <AnimatePresence mode="wait">
           {currentView === ViewState.HOME && (
@@ -382,7 +388,9 @@ const Index = () => {
           )}
           {currentView === ViewState.LENS && (
             <motion.div key="lens" {...pageTransition} className="h-full w-full">
-              <FoodLens onFoodLogged={handleFoodLogged} />
+              {online
+                ? <FoodLens onFoodLogged={handleFoodLogged} />
+                : <OfflineGate feature="Food Lens" description="AI food scanning runs in the cloud. Reconnect to analyse meals — your steps, workouts and profile still work offline." />}
             </motion.div>
           )}
           {currentView === ViewState.TRACK && (
@@ -392,7 +400,9 @@ const Index = () => {
           )}
           {currentView === ViewState.COACH && (
             <motion.div key="coach" {...pageTransition} className="h-full w-full">
-              <ChatInterface onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
+              {online
+                ? <ChatInterface onAcceptPlan={(intake) => handleUpdateGoals({ calorieGoal: intake })} />
+                : <OfflineGate feature="AI Coach" description="Coaching replies need a live connection. Reconnect to continue your conversation." />}
             </motion.div>
           )}
           {currentView === ViewState.ME && (
@@ -404,7 +414,7 @@ const Index = () => {
           )}
         </AnimatePresence>
       </main>
-      <Navigation currentView={currentView} setView={setCurrentView} />
+      <Navigation currentView={currentView} setView={handleSetView} online={online} />
     </div>
   );
 };
