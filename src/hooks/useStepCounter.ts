@@ -4,11 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
 import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
 import {
+  isNativeAndroid,
   nativeTrackingAvailable,
+  nativeMotionGranted,
+  requestNativeTrackingPermissions,
   startNativeWorkout,
   stopNativeWorkout,
   onWorkoutUpdate,
 } from '@/lib/backgroundTracker';
+
 
 interface StepCounterState {
   steps: number;
@@ -35,9 +39,32 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   const [state, setState] = useState<StepCounterState>({
     steps: 0,
     isActive: false,
-    isSupported: typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined',
+    isSupported:
+      isNativeAndroid() ||
+      (typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined'),
     permissionState: 'prompt',
   });
+
+  // Native: reflect the real hardware + ACTIVITY_RECOGNITION state on mount so
+  // Start is enabled the moment the OS permission is already granted.
+  useEffect(() => {
+    if (!isNativeAndroid()) return;
+    let cancelled = false;
+    (async () => {
+      const hardware = await nativeTrackingAvailable();
+      const granted = hardware && (await nativeMotionGranted());
+      if (cancelled) return;
+      setState(prev => ({
+        ...prev,
+        isSupported: hardware || prev.isSupported,
+        permissionState: granted ? 'granted' : prev.permissionState,
+      }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const stepsRef = useRef(0);
   const lastStepTimeRef = useRef(0);
@@ -73,6 +100,21 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
 
     setState(prev => ({ ...prev, permissionState: 'requesting' as any }));
+
+    // Android native: ACTIVITY_RECOGNITION is mandatory for the hardware
+    // pedometer — without it the foreground service registers no sensor.
+    if (isNativeAndroid()) {
+      const res = await requestNativeTrackingPermissions();
+      if (!res.activity) {
+        setState(prev => ({ ...prev, permissionState: 'denied' }));
+        toast.error('Motion & fitness permission is required to count steps. Enable it in app settings.');
+        return false;
+      }
+      setState(prev => ({ ...prev, permissionState: 'granted' }));
+      return true;
+    }
+
+
 
     // iOS 13+ requires explicit permission
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {

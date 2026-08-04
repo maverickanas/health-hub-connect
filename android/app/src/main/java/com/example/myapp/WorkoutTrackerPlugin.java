@@ -16,7 +16,10 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 /**
  * JS bridge for {@link WorkoutTrackingService}.
@@ -25,8 +28,17 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * "workoutUpdate" events emitted from the hardware pedometer inside the
  * foreground service, so the counter keeps running with the app backgrounded.
  */
-@CapacitorPlugin(name = "WorkoutTracker")
+@CapacitorPlugin(
+    name = "WorkoutTracker",
+    permissions = {
+        @Permission(alias = "activity", strings = { Manifest.permission.ACTIVITY_RECOGNITION }),
+        @Permission(alias = "sensors", strings = { Manifest.permission.BODY_SENSORS }),
+        @Permission(alias = "notifications", strings = { "android.permission.POST_NOTIFICATIONS" }),
+        @Permission(alias = "camera", strings = { Manifest.permission.CAMERA })
+    }
+)
 public class WorkoutTrackerPlugin extends Plugin {
+
 
     private BroadcastReceiver receiver;
 
@@ -75,6 +87,55 @@ public class WorkoutTrackerPlugin extends Plugin {
         r.put("running", WorkoutTrackingService.isRunning);
         call.resolve(r);
     }
+
+    /**
+     * Requests every runtime permission the tracker needs (motion/activity
+     * recognition is mandatory for the hardware pedometer on API 29+).
+     */
+    @PluginMethod
+    public void requestTrackingPermissions(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 29
+                && getPermissionState("activity") != PermissionState.GRANTED) {
+            requestPermissionForAlias("activity", call, "trackingPermsCallback");
+            return;
+        }
+        trackingPermsCallback(call);
+    }
+
+    @PermissionCallback
+    private void trackingPermsCallback(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 33
+                && getPermissionState("notifications") != PermissionState.GRANTED) {
+            requestPermissionForAlias("notifications", call, "notifPermsCallback");
+            return;
+        }
+        notifPermsCallback(call);
+    }
+
+    @PermissionCallback
+    private void notifPermsCallback(PluginCall call) {
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            requestPermissionForAlias("camera", call, "finalPermsCallback");
+            return;
+        }
+        finalPermsCallback(call);
+    }
+
+    @PermissionCallback
+    private void finalPermsCallback(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("activity", granted(Manifest.permission.ACTIVITY_RECOGNITION));
+        r.put("notifications", Build.VERSION.SDK_INT < 33
+                || granted("android.permission.POST_NOTIFICATIONS"));
+        r.put("camera", granted(Manifest.permission.CAMERA));
+        call.resolve(r);
+    }
+
+    private boolean granted(String perm) {
+        return ContextCompat.checkSelfPermission(getContext(), perm)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
 
     @PluginMethod
     public void start(PluginCall call) {

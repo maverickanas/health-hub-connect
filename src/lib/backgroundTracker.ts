@@ -29,6 +29,11 @@ interface WorkoutTrackerPlugin {
     activityRecognitionGranted: boolean;
     running: boolean;
   }>;
+  requestTrackingPermissions(): Promise<{
+    activity: boolean;
+    notifications: boolean;
+    camera: boolean;
+  }>;
   start(): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
@@ -50,6 +55,7 @@ export const isNativeAndroid = () => {
   }
 };
 
+/** True when the device exposes a hardware pedometer (regardless of permission). */
 export async function nativeTrackingAvailable(): Promise<boolean> {
   if (!isNativeAndroid()) return false;
   try {
@@ -59,6 +65,37 @@ export async function nativeTrackingAvailable(): Promise<boolean> {
     return false;
   }
 }
+
+/** Has the mandatory motion / activity-recognition permission been granted? */
+export async function nativeMotionGranted(): Promise<boolean> {
+  if (!isNativeAndroid()) return false;
+  try {
+    const r = await WorkoutTracker.isAvailable();
+    return r.hardwareStepCounter && r.activityRecognitionGranted;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prompts for motion (activity recognition), notifications and camera.
+ * Motion is mandatory — the hardware pedometer cannot start without it.
+ */
+export async function requestNativeTrackingPermissions(): Promise<{
+  activity: boolean;
+  notifications: boolean;
+  camera: boolean;
+}> {
+  if (!isNativeAndroid()) {
+    return { activity: false, notifications: false, camera: false };
+  }
+  try {
+    return await WorkoutTracker.requestTrackingPermissions();
+  } catch {
+    return { activity: false, notifications: false, camera: false };
+  }
+}
+
 
 export async function startNativeWorkout(): Promise<boolean> {
   if (!isNativeAndroid()) return false;
