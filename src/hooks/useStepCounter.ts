@@ -101,6 +101,21 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
 
     setState(prev => ({ ...prev, permissionState: 'requesting' as any }));
 
+    // Android native: ACTIVITY_RECOGNITION is mandatory for the hardware
+    // pedometer — without it the foreground service registers no sensor.
+    if (isNativeAndroid()) {
+      const res = await requestNativeTrackingPermissions();
+      if (!res.activity) {
+        setState(prev => ({ ...prev, permissionState: 'denied' }));
+        toast.error('Motion & fitness permission is required to count steps. Enable it in app settings.');
+        return false;
+      }
+      setState(prev => ({ ...prev, permissionState: 'granted' }));
+      return true;
+    }
+
+
+
     // iOS 13+ requires explicit permission
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
       try {
