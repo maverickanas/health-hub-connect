@@ -9,6 +9,7 @@
  */
 import { Capacitor } from '@capacitor/core';
 import { requestNotificationPermission } from './liveNotification';
+import { isNativeAndroid, requestNativeTrackingPermissions } from './backgroundTracker';
 import {
   isBatteryOptimizationDisabled,
   requestBatteryOptimizationExemption,
@@ -18,6 +19,7 @@ export interface PermissionReport {
   notifications: boolean;
   location: boolean;
   motion: boolean;
+  camera: boolean;
   battery: boolean;
 }
 
@@ -26,6 +28,7 @@ export async function requestAppPermissions(): Promise<PermissionReport> {
     notifications: false,
     location: false,
     motion: false,
+    camera: false,
     battery: false,
   };
 
@@ -39,8 +42,21 @@ export async function requestAppPermissions(): Promise<PermissionReport> {
 
   if (!native) return report;
 
-  report.notifications = await requestNotificationPermission();
+  // 1. Motion / activity recognition (MANDATORY for step counting), plus
+  //    notifications and camera — asked in a single native chain on Android.
+  if (isNativeAndroid()) {
+    const res = await requestNativeTrackingPermissions();
+    report.motion = res.activity;
+    report.notifications = res.notifications;
+    report.camera = res.camera;
+  }
 
+  // 2. Notification channel setup / iOS notification prompt.
+  if (!report.notifications) {
+    report.notifications = await requestNotificationPermission();
+  }
+
+  // 3. Location — foreground + background for GPS route tracking.
   try {
     const { Geolocation } = await import('@capacitor/geolocation');
     const status = await Geolocation.requestPermissions({ permissions: ['location'] });
@@ -49,16 +65,19 @@ export async function requestAppPermissions(): Promise<PermissionReport> {
     /* plugin unavailable */
   }
 
-  try {
-    const DM = (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } })
-      .DeviceMotionEvent;
-    if (typeof DM?.requestPermission === 'function') {
-      report.motion = (await DM.requestPermission()) === 'granted';
-    } else {
-      report.motion = typeof window !== 'undefined' && 'DeviceMotionEvent' in window;
+  // 4. iOS DeviceMotion gate (no-op on Android where step 1 already ran).
+  if (!report.motion) {
+    try {
+      const DM = (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } })
+        .DeviceMotionEvent;
+      if (typeof DM?.requestPermission === 'function') {
+        report.motion = (await DM.requestPermission()) === 'granted';
+      } else {
+        report.motion = typeof window !== 'undefined' && 'DeviceMotionEvent' in window;
+      }
+    } catch {
+      report.motion = false;
     }
-  } catch {
-    report.motion = false;
   }
 
   // Asked last: it opens a full-screen system dialog, so it must not interrupt
@@ -71,6 +90,7 @@ export async function requestAppPermissions(): Promise<PermissionReport> {
 
   return report;
 }
+
 
 /** Re-check (without prompting) whether background execution is unrestricted. */
 export async function checkBackgroundExecutionAllowed(): Promise<boolean> {
