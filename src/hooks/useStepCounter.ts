@@ -4,11 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
 import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
 import {
+  isNativeAndroid,
   nativeTrackingAvailable,
+  nativeMotionGranted,
+  requestNativeTrackingPermissions,
   startNativeWorkout,
   stopNativeWorkout,
   onWorkoutUpdate,
 } from '@/lib/backgroundTracker';
+
 
 interface StepCounterState {
   steps: number;
