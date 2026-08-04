@@ -88,6 +88,55 @@ public class WorkoutTrackerPlugin extends Plugin {
         call.resolve(r);
     }
 
+    /**
+     * Requests every runtime permission the tracker needs (motion/activity
+     * recognition is mandatory for the hardware pedometer on API 29+).
+     */
+    @PluginMethod
+    public void requestTrackingPermissions(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 29
+                && getPermissionState("activity") != PermissionState.GRANTED) {
+            requestPermissionForAlias("activity", call, "trackingPermsCallback");
+            return;
+        }
+        trackingPermsCallback(call);
+    }
+
+    @PermissionCallback
+    private void trackingPermsCallback(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 33
+                && getPermissionState("notifications") != PermissionState.GRANTED) {
+            requestPermissionForAlias("notifications", call, "notifPermsCallback");
+            return;
+        }
+        notifPermsCallback(call);
+    }
+
+    @PermissionCallback
+    private void notifPermsCallback(PluginCall call) {
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            requestPermissionForAlias("camera", call, "finalPermsCallback");
+            return;
+        }
+        finalPermsCallback(call);
+    }
+
+    @PermissionCallback
+    private void finalPermsCallback(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("activity", granted(Manifest.permission.ACTIVITY_RECOGNITION));
+        r.put("notifications", Build.VERSION.SDK_INT < 33
+                || granted("android.permission.POST_NOTIFICATIONS"));
+        r.put("camera", granted(Manifest.permission.CAMERA));
+        call.resolve(r);
+    }
+
+    private boolean granted(String perm) {
+        return ContextCompat.checkSelfPermission(getContext(), perm)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+
     @PluginMethod
     public void start(PluginCall call) {
         Intent i = new Intent(getContext(), WorkoutTrackingService.class)
