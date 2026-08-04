@@ -39,9 +39,32 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   const [state, setState] = useState<StepCounterState>({
     steps: 0,
     isActive: false,
-    isSupported: typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined',
+    isSupported:
+      isNativeAndroid() ||
+      (typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined'),
     permissionState: 'prompt',
   });
+
+  // Native: reflect the real hardware + ACTIVITY_RECOGNITION state on mount so
+  // Start is enabled the moment the OS permission is already granted.
+  useEffect(() => {
+    if (!isNativeAndroid()) return;
+    let cancelled = false;
+    (async () => {
+      const hardware = await nativeTrackingAvailable();
+      const granted = hardware && (await nativeMotionGranted());
+      if (cancelled) return;
+      setState(prev => ({
+        ...prev,
+        isSupported: hardware || prev.isSupported,
+        permissionState: granted ? 'granted' : prev.permissionState,
+      }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const stepsRef = useRef(0);
   const lastStepTimeRef = useRef(0);
