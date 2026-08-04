@@ -655,7 +655,7 @@ const GPSTracker: React.FC<GPSTrackerProps> = ({ onWorkoutSave }) => {
       {/* Planned route summary chip */}
       {plannedRoute && (
         <div className="absolute left-3 right-3 z-[1000] mx-auto max-w-md"
-             style={{ top: 'calc(8.5rem + env(safe-area-inset-top, 0px))' }}>
+             style={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
           <div className="rounded-2xl border border-cyan-400/30 px-3 py-2 flex items-center gap-2 backdrop-blur-xl"
                style={{ background: 'rgba(0,229,255,0.08)', boxShadow: '0 0 24px rgba(0,229,255,0.15)' }}>
             <Navigation size={14} className="text-cyan-300 shrink-0"
