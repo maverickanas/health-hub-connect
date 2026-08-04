@@ -22,7 +22,15 @@ allprojects {
         google()
         mavenCentral()
     }
+    // androidx.browser 1.9.x requires AGP 8.9+/compileSdk 36; pin to the last
+    // version compatible with this toolchain.
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.browser:browser:1.8.0'
+        }
+    }
 }
+
 
 task clean(type: Delete) {
     delete rootProject.buildDir
