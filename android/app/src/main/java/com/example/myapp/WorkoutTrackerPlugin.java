@@ -16,7 +16,10 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 /**
  * JS bridge for {@link WorkoutTrackingService}.
@@ -25,8 +28,17 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * "workoutUpdate" events emitted from the hardware pedometer inside the
  * foreground service, so the counter keeps running with the app backgrounded.
  */
-@CapacitorPlugin(name = "WorkoutTracker")
+@CapacitorPlugin(
+    name = "WorkoutTracker",
+    permissions = {
+        @Permission(alias = "activity", strings = { Manifest.permission.ACTIVITY_RECOGNITION }),
+        @Permission(alias = "sensors", strings = { Manifest.permission.BODY_SENSORS }),
+        @Permission(alias = "notifications", strings = { "android.permission.POST_NOTIFICATIONS" }),
+        @Permission(alias = "camera", strings = { Manifest.permission.CAMERA })
+    }
+)
 public class WorkoutTrackerPlugin extends Plugin {
+
 
     private BroadcastReceiver receiver;
 
