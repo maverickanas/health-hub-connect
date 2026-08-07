@@ -119,6 +119,17 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     return () => { cancelled = true; };
   }, [applyNativeUpdate]);
 
+  // Android may freeze the WebView while minimized. Pull the authoritative
+  // native count as soon as the document becomes visible again.
+  useEffect(() => {
+    if (!isNativeAndroid()) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void syncNativeWorkout();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     const acc = event.accelerationIncludingGravity;
