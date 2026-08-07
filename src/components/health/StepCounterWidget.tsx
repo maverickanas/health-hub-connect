@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Footprints, Play, Square, RotateCcw, Smartphone, Sliders, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
+import { Footprints, Play, Square, RotateCcw, Smartphone, Sliders, ShieldCheck, ShieldAlert, Loader2, BatteryWarning } from 'lucide-react';
 import { useStepCounter } from '@/hooks/useStepCounter';
 
 interface StepCounterWidgetProps {
@@ -14,12 +14,16 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ userId, onSession
     isActive,
     isSupported,
     permissionState,
+    source,
+    batteryUnrestricted,
     start,
     stop,
     reset,
     calibrate,
     requestPermission,
+    fixBatteryRestriction,
   } = useStepCounter({ userId, onSessionSaved });
+
 
   if (!isSupported) {
     return (
