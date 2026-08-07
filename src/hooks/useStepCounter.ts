@@ -255,6 +255,10 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   }, [userId, onSessionSaved]);
 
   const stop = useCallback(async () => {
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
     if (handlerRef.current) {
       window.removeEventListener('devicemotion', handlerRef.current);
       handlerRef.current = null;
@@ -265,7 +269,8 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
     await stopNativeWorkout();
     const sessionSteps = stepsRef.current;
-    setState(prev => ({ ...prev, isActive: false }));
+    setState(prev => ({ ...prev, isActive: false, source: 'none' }));
+
     clearStepNotification();
     await persistSteps(sessionSteps);
     // Auto-reset local tracker so the next session starts fresh from 0
