@@ -15,6 +15,8 @@ import {
   startNativeWorkout,
   stopNativeWorkout,
   onWorkoutUpdate,
+  syncNativeWorkout,
+  nativeWorkoutRunning,
 } from '@/lib/backgroundTracker';
 
 
@@ -86,6 +88,36 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   const nativeUnsubRef = useRef<(() => void) | null>(null);
   const nativeAliveRef = useRef(false);
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyNativeUpdate = useCallback((u: Parameters<Parameters<typeof onWorkoutUpdate>[0]>[0]) => {
+    nativeAliveRef.current = true;
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+    stepsRef.current = u.steps;
+    setState(prev => ({
+      ...prev,
+      steps: u.steps,
+      isActive: u.event !== 'stop',
+      source: u.event === 'stop' ? 'none' : 'native',
+    }));
+  }, []);
+
+  // Reconnect to a foreground service that survived WebView suspension or app
+  // recreation, then request an immediate snapshot so the UI never shows zero.
+  useEffect(() => {
+    if (!isNativeAndroid()) return;
+    let cancelled = false;
+    void (async () => {
+      const running = await nativeWorkoutRunning();
+      if (!running || cancelled) return;
+      nativeUnsubRef.current?.();
+      nativeUnsubRef.current = await onWorkoutUpdate(applyNativeUpdate);
+      if (!cancelled) await syncNativeWorkout();
+    })();
+    return () => { cancelled = true; };
+  }, [applyNativeUpdate]);
 
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
@@ -184,22 +216,12 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     // motion / activity-recognition permission — without it the service
     // registers no sensor and the counter would sit at zero forever.
     if (isNativeAndroid() && (await nativeMotionGranted())) {
+      // Subscribe before starting. The service emits its initial/restored state
+      // immediately, so subscribing afterwards can miss it and display zero.
+      nativeUnsubRef.current?.();
+      nativeUnsubRef.current = await onWorkoutUpdate(applyNativeUpdate);
       const started = await startNativeWorkout();
       if (started) {
-        nativeUnsubRef.current = await onWorkoutUpdate(u => {
-          nativeAliveRef.current = true;
-          if (watchdogRef.current) {
-            clearTimeout(watchdogRef.current);
-            watchdogRef.current = null;
-          }
-          stepsRef.current = u.steps;
-          setState(prev => ({
-            ...prev,
-            steps: u.steps,
-            isActive: u.event !== 'stop',
-            source: 'native',
-          }));
-        });
         setState(prev => ({ ...prev, isActive: true, source: 'native' }));
 
         // Watchdog: if the foreground service never reports back (sensor
@@ -220,7 +242,7 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
 
     // Web / no-pedometer / permission-less fallback: DeviceMotion in the JS thread.
     attachMotionFallback();
-  }, [state.permissionState, requestPermission, attachMotionFallback]);
+  }, [state.permissionState, requestPermission, attachMotionFallback, applyNativeUpdate]);
 
 
   const persistSteps = useCallback(async (sessionSteps: number) => {
@@ -358,6 +380,8 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
         window.removeEventListener('devicemotion', handlerRef.current);
         clearStepNotification();
       }
+      nativeUnsubRef.current?.();
+      nativeUnsubRef.current = null;
     };
   }, []);
 

@@ -38,6 +38,7 @@ interface WorkoutTrackerPlugin {
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<void>;
+  sync(): Promise<void>;
   updateMetrics(opts: { distanceKm: number; calories: number; eta?: string }): Promise<void>;
   addListener(
     event: 'workoutUpdate',
@@ -113,6 +114,25 @@ export async function stopNativeWorkout(): Promise<void> {
     await WorkoutTracker.stop();
   } catch {
     /* noop */
+  }
+}
+
+/** Replays the current native session into workoutUpdate after JS resumes. */
+export async function syncNativeWorkout(): Promise<void> {
+  if (!isNativeAndroid()) return;
+  try {
+    await WorkoutTracker.sync();
+  } catch {
+    /* noop */
+  }
+}
+
+export async function nativeWorkoutRunning(): Promise<boolean> {
+  if (!isNativeAndroid()) return false;
+  try {
+    return (await WorkoutTracker.isAvailable()).running;
+  } catch {
+    return false;
   }
 }
 

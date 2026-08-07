@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -35,6 +36,7 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
     public static final String ACTION_RESUME = "com.example.myapp.RESUME_WORKOUT";
     public static final String ACTION_STOP = "com.example.myapp.STOP_WORKOUT";
     public static final String ACTION_UPDATE_METRICS = "com.example.myapp.UPDATE_METRICS";
+    public static final String ACTION_SYNC = "com.example.myapp.SYNC_WORKOUT";
 
     /** Broadcast emitted to the JS layer on every tick. */
     public static final String BROADCAST_UPDATE = "com.example.myapp.WORKOUT_UPDATE";
@@ -49,6 +51,7 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
 
     private static final String CHANNEL_ID = "healthyhub_workout";
     private static final int NOTIFICATION_ID = 4301;
+    private static final String PREFS = "healthyhub_workout_state";
 
     private SensorManager sensorManager;
     private Sensor stepCounter;
@@ -68,6 +71,11 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
     private long pausedAt = 0L;
 
     public static boolean isRunning = false;
+
+    public static boolean hasRunningSession(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean("running", false);
+    }
 
     @Override
     public void onCreate() {
@@ -119,6 +127,9 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
                 pushNotification();
                 broadcast("metrics");
                 break;
+            case ACTION_SYNC:
+                if (isRunning) broadcast(paused ? "pause" : "step");
+                break;
             default:
                 startTracking();
                 break;
@@ -127,18 +138,28 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
     }
 
     private void startTracking() {
-        if (isRunning) return;
+        if (isRunning) {
+            broadcast(paused ? "pause" : "start");
+            return;
+        }
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        boolean restoring = prefs.getBoolean("running", false);
         isRunning = true;
-        paused = false;
-        sessionSteps = 0;
-        stepsAtPause = 0;
-        baselineSteps = -1f;
-        pausedAccumMs = 0L;
-        startedAt = System.currentTimeMillis();
+        paused = restoring && prefs.getBoolean("paused", false);
+        sessionSteps = restoring ? prefs.getInt("steps", 0) : 0;
+        stepsAtPause = sessionSteps;
+        baselineSteps = restoring ? prefs.getFloat("baseline", -1f) : -1f;
+        pausedAccumMs = restoring ? prefs.getLong("pausedAccumMs", 0L) : 0L;
+        startedAt = restoring ? prefs.getLong("startedAt", System.currentTimeMillis()) : System.currentTimeMillis();
+        pausedAt = restoring ? prefs.getLong("pausedAt", 0L) : 0L;
+        distanceKm = restoring ? Double.longBitsToDouble(prefs.getLong("distanceBits", 0L)) : 0d;
+        calories = restoring ? prefs.getInt("calories", 0) : 0;
+        eta = restoring ? prefs.getString("eta", "--") : "--";
 
         startInForeground();
         acquireWakeLock();
-        attachSensor();
+        if (!paused) attachSensor();
+        persistState();
         broadcast("start");
     }
 
@@ -159,6 +180,7 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
 
     private void stopTracking() {
         isRunning = false;
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply();
         detachSensor();
         releaseWakeLock();
         stopForeground(true);
@@ -192,6 +214,7 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
             return;
         }
         pushNotification();
+        persistState();
         broadcast("step");
     }
 
@@ -298,6 +321,21 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
         if (nm != null) nm.notify(NOTIFICATION_ID, buildNotification());
     }
 
+    private void persistState() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean("running", isRunning)
+                .putBoolean("paused", paused)
+                .putInt("steps", sessionSteps)
+                .putInt("calories", calories)
+                .putFloat("baseline", baselineSteps)
+                .putLong("startedAt", startedAt)
+                .putLong("pausedAt", pausedAt)
+                .putLong("pausedAccumMs", pausedAccumMs)
+                .putLong("distanceBits", Double.doubleToRawLongBits(distanceKm))
+                .putString("eta", eta)
+                .apply();
+    }
+
     // ------------------------------------------------------------- broadcast
 
     private void broadcast(String event) {
@@ -316,6 +354,8 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
     public void onDestroy() {
         detachSensor();
         releaseWakeLock();
+        // Keep the persisted running session intact. START_STICKY recreates the
+        // service and startTracking() restores the counter instead of zeroing it.
         isRunning = false;
         super.onDestroy();
     }
