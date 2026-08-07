@@ -332,9 +332,28 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   }, [state.isActive]);
 
 
+  // Battery-restriction status (Android): surfaced so the UI can nudge the user
+  // to switch battery usage to "Unrestricted".
+  const refreshBatteryStatus = useCallback(async () => {
+    const ok = await isBatteryOptimizationDisabled().catch(() => false);
+    setState(prev => ({ ...prev, batteryUnrestricted: ok }));
+    return ok;
+  }, []);
+
+  useEffect(() => {
+    void refreshBatteryStatus();
+  }, [refreshBatteryStatus]);
+
+  const fixBatteryRestriction = useCallback(async () => {
+    const ok = await requestBatteryOptimizationExemption().catch(() => false);
+    if (!ok) await openBatterySettings();
+    await refreshBatteryStatus();
+  }, [refreshBatteryStatus]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
       if (handlerRef.current) {
         window.removeEventListener('devicemotion', handlerRef.current);
         clearStepNotification();
@@ -342,5 +361,15 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     };
   }, []);
 
-  return { ...state, start, stop, reset, calibrate, requestPermission };
+  return {
+    ...state,
+    start,
+    stop,
+    reset,
+    calibrate,
+    requestPermission,
+    fixBatteryRestriction,
+    refreshBatteryStatus,
+  };
+
 }
