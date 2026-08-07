@@ -218,6 +218,7 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     if (isNativeAndroid() && (await nativeMotionGranted())) {
       // Subscribe before starting. The service emits its initial/restored state
       // immediately, so subscribing afterwards can miss it and display zero.
+      nativeAliveRef.current = false;
       nativeUnsubRef.current?.();
       nativeUnsubRef.current = await onWorkoutUpdate(applyNativeUpdate);
       const started = await startNativeWorkout();
@@ -227,7 +228,6 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
         // Watchdog: if the foreground service never reports back (sensor
         // missing, OEM restriction, service killed), silently switch to the
         // accelerometer pipeline so the user still gets a live count.
-        nativeAliveRef.current = false;
         watchdogRef.current = setTimeout(() => {
           if (!nativeAliveRef.current) {
             nativeUnsubRef.current?.();
