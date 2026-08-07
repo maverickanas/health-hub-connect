@@ -155,7 +155,9 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
         paused = restoring && prefs.getBoolean("paused", false);
         sessionSteps = restoring ? prefs.getInt("steps", 0) : 0;
         stepsAtPause = sessionSteps;
-        baselineSteps = restoring ? prefs.getFloat("baseline", -1f) : -1f;
+        // TYPE_STEP_COUNTER is cumulative since boot. After service recreation,
+        // take a fresh baseline and add new movement to the persisted session.
+        baselineSteps = -1f;
         pausedAccumMs = restoring ? prefs.getLong("pausedAccumMs", 0L) : 0L;
         startedAt = restoring ? prefs.getLong("startedAt", System.currentTimeMillis()) : System.currentTimeMillis();
         pausedAt = restoring ? prefs.getLong("pausedAt", 0L) : 0L;
