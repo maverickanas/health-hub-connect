@@ -2,7 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
-import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
+import {
+  requestBatteryOptimizationExemption,
+  isBatteryOptimizationDisabled,
+  openBatterySettings,
+} from '@/lib/batteryOptimization';
 import {
   isNativeAndroid,
   nativeTrackingAvailable,
@@ -19,6 +23,10 @@ interface StepCounterState {
   isActive: boolean;
   isSupported: boolean;
   permissionState: 'prompt' | 'requesting' | 'granted' | 'denied' | 'unsupported';
+  /** Which sensor pipeline is currently feeding the counter. */
+  source: 'none' | 'native' | 'motion';
+  /** False when Android battery optimization may kill background tracking. */
+  batteryUnrestricted: boolean;
 }
 
 interface UseStepCounterOptions {
@@ -29,12 +37,14 @@ interface UseStepCounterOptions {
 
 const STEP_MAGNITUDE_THRESHOLD = 12; // m/s² — peak above this counts as a step impact
 const STEP_DEBOUNCE_MS = 300; // min interval between steps
+const NATIVE_WATCHDOG_MS = 4000; // native service must report in within this window
 
 export function useStepCounter(options: UseStepCounterOptions | ((steps: number) => void) = {}) {
   // Backward compat: allow passing a callback directly
   const opts: UseStepCounterOptions =
     typeof options === 'function' ? { onStepUpdate: options } : options;
   const { userId, onStepUpdate, onSessionSaved } = opts;
+
 
   const [state, setState] = useState<StepCounterState>({
     steps: 0,
@@ -43,7 +53,10 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       isNativeAndroid() ||
       (typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined'),
     permissionState: 'prompt',
+    source: 'none',
+    batteryUnrestricted: true,
   });
+
 
   // Native: reflect the real hardware + ACTIVITY_RECOGNITION state on mount so
   // Start is enabled the moment the OS permission is already granted.
@@ -71,6 +84,9 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   const aboveThresholdRef = useRef(false);
   const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
   const nativeUnsubRef = useRef<(() => void) | null>(null);
+  const nativeAliveRef = useRef(false);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     const acc = event.accelerationIncludingGravity;
@@ -136,6 +152,14 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     return true;
   }, [state.isSupported]);
 
+  const attachMotionFallback = useCallback(() => {
+    if (handlerRef.current) return;
+    handlerRef.current = handleMotion;
+    window.addEventListener('devicemotion', handleMotion);
+    setState(prev => ({ ...prev, isActive: true, source: 'motion' }));
+    showStepNotification(stepsRef.current);
+  }, [handleMotion]);
+
   const start = useCallback(async () => {
     if (state.permissionState !== 'granted') {
       const ok = await requestPermission();
@@ -145,28 +169,59 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     requestNotificationPermission().catch(() => {});
     // Doze/App Standby exemption — without it the sensor stream and the
     // notification stop updating shortly after the screen turns off.
-    requestBatteryOptimizationExemption().catch(() => {});
+    (async () => {
+      const ok = await requestBatteryOptimizationExemption().catch(() => false);
+      setState(prev => ({ ...prev, batteryUnrestricted: ok }));
+      if (!ok && isNativeAndroid()) {
+        toast.warning('Set battery usage to "Unrestricted" so step tracking keeps running in the background.', {
+          action: { label: 'Open settings', onClick: () => { void openBatterySettings(); } },
+        });
+      }
+    })();
 
     // Preferred path: hardware pedometer inside the foreground service. The JS
-    // thread can be frozen and the count keeps advancing natively.
-    if (await nativeTrackingAvailable()) {
+    // thread can be frozen and the count keeps advancing natively. Requires the
+    // motion / activity-recognition permission — without it the service
+    // registers no sensor and the counter would sit at zero forever.
+    if (isNativeAndroid() && (await nativeMotionGranted())) {
       const started = await startNativeWorkout();
       if (started) {
         nativeUnsubRef.current = await onWorkoutUpdate(u => {
+          nativeAliveRef.current = true;
+          if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current);
+            watchdogRef.current = null;
+          }
           stepsRef.current = u.steps;
-          setState(prev => ({ ...prev, steps: u.steps, isActive: u.event !== 'stop' }));
+          setState(prev => ({
+            ...prev,
+            steps: u.steps,
+            isActive: u.event !== 'stop',
+            source: 'native',
+          }));
         });
-        setState(prev => ({ ...prev, isActive: true }));
+        setState(prev => ({ ...prev, isActive: true, source: 'native' }));
+
+        // Watchdog: if the foreground service never reports back (sensor
+        // missing, OEM restriction, service killed), silently switch to the
+        // accelerometer pipeline so the user still gets a live count.
+        nativeAliveRef.current = false;
+        watchdogRef.current = setTimeout(() => {
+          if (!nativeAliveRef.current) {
+            nativeUnsubRef.current?.();
+            nativeUnsubRef.current = null;
+            void stopNativeWorkout();
+            attachMotionFallback();
+          }
+        }, NATIVE_WATCHDOG_MS);
         return;
       }
     }
 
-    // Web / no-pedometer fallback: DeviceMotion in the JS thread.
-    handlerRef.current = handleMotion;
-    window.addEventListener('devicemotion', handleMotion);
-    setState(prev => ({ ...prev, isActive: true }));
-    showStepNotification(stepsRef.current);
-  }, [state.permissionState, requestPermission, handleMotion]);
+    // Web / no-pedometer / permission-less fallback: DeviceMotion in the JS thread.
+    attachMotionFallback();
+  }, [state.permissionState, requestPermission, attachMotionFallback]);
+
 
   const persistSteps = useCallback(async (sessionSteps: number) => {
     if (!userId || sessionSteps <= 0) return;
@@ -200,6 +255,10 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   }, [userId, onSessionSaved]);
 
   const stop = useCallback(async () => {
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
     if (handlerRef.current) {
       window.removeEventListener('devicemotion', handlerRef.current);
       handlerRef.current = null;
@@ -210,7 +269,8 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     }
     await stopNativeWorkout();
     const sessionSteps = stepsRef.current;
-    setState(prev => ({ ...prev, isActive: false }));
+    setState(prev => ({ ...prev, isActive: false, source: 'none' }));
+
     clearStepNotification();
     await persistSteps(sessionSteps);
     // Auto-reset local tracker so the next session starts fresh from 0
@@ -272,9 +332,28 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
   }, [state.isActive]);
 
 
+  // Battery-restriction status (Android): surfaced so the UI can nudge the user
+  // to switch battery usage to "Unrestricted".
+  const refreshBatteryStatus = useCallback(async () => {
+    const ok = await isBatteryOptimizationDisabled().catch(() => false);
+    setState(prev => ({ ...prev, batteryUnrestricted: ok }));
+    return ok;
+  }, []);
+
+  useEffect(() => {
+    void refreshBatteryStatus();
+  }, [refreshBatteryStatus]);
+
+  const fixBatteryRestriction = useCallback(async () => {
+    const ok = await requestBatteryOptimizationExemption().catch(() => false);
+    if (!ok) await openBatterySettings();
+    await refreshBatteryStatus();
+  }, [refreshBatteryStatus]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
       if (handlerRef.current) {
         window.removeEventListener('devicemotion', handlerRef.current);
         clearStepNotification();
@@ -282,5 +361,15 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     };
   }, []);
 
-  return { ...state, start, stop, reset, calibrate, requestPermission };
+  return {
+    ...state,
+    start,
+    stop,
+    reset,
+    calibrate,
+    requestPermission,
+    fixBatteryRestriction,
+    refreshBatteryStatus,
+  };
+
 }
