@@ -53,7 +53,10 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
       isNativeAndroid() ||
       (typeof window !== 'undefined' && typeof DeviceMotionEvent !== 'undefined'),
     permissionState: 'prompt',
+    source: 'none',
+    batteryUnrestricted: true,
   });
+
 
   // Native: reflect the real hardware + ACTIVITY_RECOGNITION state on mount so
   // Start is enabled the moment the OS permission is already granted.
