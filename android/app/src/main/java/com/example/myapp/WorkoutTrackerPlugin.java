@@ -84,7 +84,8 @@ public class WorkoutTrackerPlugin extends Plugin {
         JSObject r = new JSObject();
         r.put("hardwareStepCounter", hw);
         r.put("activityRecognitionGranted", recognition);
-        r.put("running", WorkoutTrackingService.isRunning);
+        r.put("running", WorkoutTrackingService.isRunning
+                || WorkoutTrackingService.hasRunningSession(getContext()));
         call.resolve(r);
     }
 
@@ -160,6 +161,13 @@ public class WorkoutTrackerPlugin extends Plugin {
     @PluginMethod
     public void stop(PluginCall call) {
         send(WorkoutTrackingService.ACTION_STOP);
+        call.resolve();
+    }
+
+    /** Ask the already-running service to immediately replay its latest state. */
+    @PluginMethod
+    public void sync(PluginCall call) {
+        send(WorkoutTrackingService.ACTION_SYNC);
         call.resolve();
     }
 
