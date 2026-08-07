@@ -149,6 +149,14 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     return true;
   }, [state.isSupported]);
 
+  const attachMotionFallback = useCallback(() => {
+    if (handlerRef.current) return;
+    handlerRef.current = handleMotion;
+    window.addEventListener('devicemotion', handleMotion);
+    setState(prev => ({ ...prev, isActive: true, source: 'motion' }));
+    showStepNotification(stepsRef.current);
+  }, [handleMotion]);
+
   const start = useCallback(async () => {
     if (state.permissionState !== 'granted') {
       const ok = await requestPermission();
@@ -158,28 +166,59 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
     requestNotificationPermission().catch(() => {});
     // Doze/App Standby exemption — without it the sensor stream and the
     // notification stop updating shortly after the screen turns off.
-    requestBatteryOptimizationExemption().catch(() => {});
+    (async () => {
+      const ok = await requestBatteryOptimizationExemption().catch(() => false);
+      setState(prev => ({ ...prev, batteryUnrestricted: ok }));
+      if (!ok && isNativeAndroid()) {
+        toast.warning('Set battery usage to "Unrestricted" so step tracking keeps running in the background.', {
+          action: { label: 'Open settings', onClick: () => { void openBatterySettings(); } },
+        });
+      }
+    })();
 
     // Preferred path: hardware pedometer inside the foreground service. The JS
-    // thread can be frozen and the count keeps advancing natively.
-    if (await nativeTrackingAvailable()) {
+    // thread can be frozen and the count keeps advancing natively. Requires the
+    // motion / activity-recognition permission — without it the service
+    // registers no sensor and the counter would sit at zero forever.
+    if (isNativeAndroid() && (await nativeMotionGranted())) {
       const started = await startNativeWorkout();
       if (started) {
         nativeUnsubRef.current = await onWorkoutUpdate(u => {
+          nativeAliveRef.current = true;
+          if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current);
+            watchdogRef.current = null;
+          }
           stepsRef.current = u.steps;
-          setState(prev => ({ ...prev, steps: u.steps, isActive: u.event !== 'stop' }));
+          setState(prev => ({
+            ...prev,
+            steps: u.steps,
+            isActive: u.event !== 'stop',
+            source: 'native',
+          }));
         });
-        setState(prev => ({ ...prev, isActive: true }));
+        setState(prev => ({ ...prev, isActive: true, source: 'native' }));
+
+        // Watchdog: if the foreground service never reports back (sensor
+        // missing, OEM restriction, service killed), silently switch to the
+        // accelerometer pipeline so the user still gets a live count.
+        nativeAliveRef.current = false;
+        watchdogRef.current = setTimeout(() => {
+          if (!nativeAliveRef.current) {
+            nativeUnsubRef.current?.();
+            nativeUnsubRef.current = null;
+            void stopNativeWorkout();
+            attachMotionFallback();
+          }
+        }, NATIVE_WATCHDOG_MS);
         return;
       }
     }
 
-    // Web / no-pedometer fallback: DeviceMotion in the JS thread.
-    handlerRef.current = handleMotion;
-    window.addEventListener('devicemotion', handleMotion);
-    setState(prev => ({ ...prev, isActive: true }));
-    showStepNotification(stepsRef.current);
-  }, [state.permissionState, requestPermission, handleMotion]);
+    // Web / no-pedometer / permission-less fallback: DeviceMotion in the JS thread.
+    attachMotionFallback();
+  }, [state.permissionState, requestPermission, attachMotionFallback]);
+
 
   const persistSteps = useCallback(async (sessionSteps: number) => {
     if (!userId || sessionSteps <= 0) return;
