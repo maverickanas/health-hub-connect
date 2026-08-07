@@ -132,6 +132,18 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ userId, onSession
         </span>
       </div>
 
+      {!batteryUnrestricted && (
+        <button
+          onClick={fixBatteryRestriction}
+          className="w-full flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 px-2.5 py-2 text-left"
+        >
+          <BatteryWarning size={12} className="text-amber-400 shrink-0" />
+          <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 leading-snug">
+            Battery usage is restricted — tap to set “Unrestricted” for background tracking
+          </span>
+        </button>
+      )}
+
       {isActive && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -139,9 +151,12 @@ const StepCounterWidget: React.FC<StepCounterWidgetProps> = ({ userId, onSession
           className="flex items-center gap-2"
         >
           <div className="w-1.5 h-1.5 rounded-full bg-luxury-neon animate-pulse" />
-          <span className="text-[9px] font-bold text-luxury-neon uppercase tracking-wider">Tracking active — walk to count steps</span>
+          <span className="text-[9px] font-bold text-luxury-neon uppercase tracking-wider">
+            {source === 'native' ? 'Hardware pedometer active — counts with screen off' : 'Tracking active — walk to count steps'}
+          </span>
         </motion.div>
       )}
+
     </motion.div>
   );
 };
