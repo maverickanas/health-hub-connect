@@ -103,6 +103,7 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
                 stepsAtPause = sessionSteps;
                 detachSensor();
                 pushNotification();
+                persistState();
                 broadcast("pause");
                 break;
             case ACTION_RESUME:
@@ -112,6 +113,7 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
                     baselineSteps = -1f; // re-baseline against the hardware counter
                     attachSensor();
                     pushNotification();
+                    persistState();
                     broadcast("resume");
                 }
                 break;
@@ -125,10 +127,15 @@ public class WorkoutTrackingService extends Service implements SensorEventListen
                 String e = intent.getStringExtra(EXTRA_ETA);
                 if (e != null) eta = e;
                 pushNotification();
+                persistState();
                 broadcast("metrics");
                 break;
             case ACTION_SYNC:
-                if (isRunning) broadcast(paused ? "pause" : "step");
+                if (isRunning) {
+                    broadcast(paused ? "pause" : "step");
+                } else {
+                    startTracking();
+                }
                 break;
             default:
                 startTracking();
