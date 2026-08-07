@@ -241,10 +241,18 @@ export function useStepCounter(options: UseStepCounterOptions | ((steps: number)
         // accelerometer pipeline so the user still gets a live count.
         watchdogRef.current = setTimeout(() => {
           if (!nativeAliveRef.current) {
-            nativeUnsubRef.current?.();
-            nativeUnsubRef.current = null;
-            void stopNativeWorkout();
-            attachMotionFallback();
+            void (async () => {
+              // A cold foreground service can take longer than four seconds on
+              // heavily restricted devices. Never stop a confirmed running
+              // service, because that would discard its authoritative count.
+              if (await nativeWorkoutRunning()) {
+                await syncNativeWorkout();
+                return;
+              }
+              nativeUnsubRef.current?.();
+              nativeUnsubRef.current = null;
+              attachMotionFallback();
+            })();
           }
         }, NATIVE_WATCHDOG_MS);
         return;
