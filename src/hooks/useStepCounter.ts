@@ -2,7 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { showStepNotification, clearStepNotification, requestNotificationPermission } from '@/lib/liveNotification';
-import { requestBatteryOptimizationExemption } from '@/lib/batteryOptimization';
+import {
+  requestBatteryOptimizationExemption,
+  isBatteryOptimizationDisabled,
+  openBatterySettings,
+} from '@/lib/batteryOptimization';
 import {
   isNativeAndroid,
   nativeTrackingAvailable,
@@ -19,6 +23,10 @@ interface StepCounterState {
   isActive: boolean;
   isSupported: boolean;
   permissionState: 'prompt' | 'requesting' | 'granted' | 'denied' | 'unsupported';
+  /** Which sensor pipeline is currently feeding the counter. */
+  source: 'none' | 'native' | 'motion';
+  /** False when Android battery optimization may kill background tracking. */
+  batteryUnrestricted: boolean;
 }
 
 interface UseStepCounterOptions {
@@ -29,12 +37,14 @@ interface UseStepCounterOptions {
 
 const STEP_MAGNITUDE_THRESHOLD = 12; // m/s² — peak above this counts as a step impact
 const STEP_DEBOUNCE_MS = 300; // min interval between steps
+const NATIVE_WATCHDOG_MS = 4000; // native service must report in within this window
 
 export function useStepCounter(options: UseStepCounterOptions | ((steps: number) => void) = {}) {
   // Backward compat: allow passing a callback directly
   const opts: UseStepCounterOptions =
     typeof options === 'function' ? { onStepUpdate: options } : options;
   const { userId, onStepUpdate, onSessionSaved } = opts;
+
 
   const [state, setState] = useState<StepCounterState>({
     steps: 0,
